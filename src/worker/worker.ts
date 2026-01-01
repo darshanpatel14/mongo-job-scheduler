@@ -39,11 +39,17 @@ export class Worker {
 
   private async loop(): Promise<void> {
     while (this.running) {
+      // stop requested before poll
+      if (!this.running) break;
+
       const job = await this.store.findAndLockNext({
         now: new Date(),
         workerId: this.workerId,
         lockTimeoutMs: this.lockTimeout,
       });
+
+      // stop requested after polling
+      if (!this.running) break;
 
       if (!job) {
         await this.sleep(this.pollInterval);
