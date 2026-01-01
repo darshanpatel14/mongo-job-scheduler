@@ -1,27 +1,43 @@
 import { SchedulerEmitter } from "../events";
 import { SchedulerEventMap } from "../types/events";
+import { JobStore } from "../store";
+import { Worker } from "../worker";
+import { Job } from "../types/job";
 
 export interface SchedulerOptions {
-  /**
-   * Optional unique id for this scheduler instance
-   * Useful later for multi-worker setups
-   */
   id?: string;
+
+  store?: JobStore;
+  handler?: (job: Job) => Promise<void>;
+
+  workers?: number;
+  pollIntervalMs?: number;
+  lockTimeoutMs?: number;
 }
 
 export class Scheduler {
-  private readonly emitter: SchedulerEmitter;
+  private readonly emitter = new SchedulerEmitter();
+  private readonly workers: Worker[] = [];
   private started = false;
+
   private readonly id: string;
+  private readonly store?: JobStore;
+  private readonly handler?: (job: Job) => Promise<void>;
+  private readonly workerCount: number;
+  private readonly pollInterval: number;
+  private readonly lockTimeout: number;
 
   constructor(options: SchedulerOptions = {}) {
     this.id = options.id ?? `scheduler-${Math.random().toString(36).slice(2)}`;
-    this.emitter = new SchedulerEmitter();
+
+    this.store = options.store;
+    this.handler = options.handler;
+
+    this.workerCount = options.workers ?? 1;
+    this.pollInterval = options.pollIntervalMs ?? 500;
+    this.lockTimeout = options.lockTimeoutMs ?? 30_000;
   }
 
-  /**
-   * Subscribe to scheduler events
-   */
   on<K extends keyof SchedulerEventMap>(
     event: K,
     listener: (payload: SchedulerEventMap[K]) => void
@@ -30,45 +46,45 @@ export class Scheduler {
     return this;
   }
 
-  /**
-   * Start scheduler lifecycle
-   */
   async start(): Promise<void> {
     if (this.started) return;
-
     this.started = true;
+
     this.emitter.emitSafe("scheduler:start", undefined);
 
-    // later:
-    // - resume jobs
-    // - start workers
-    // - setup polling
+    // future: recover stale jobs here
+
+    if (!this.store || !this.handler) {
+      // lifecycle-only mode (used by tests)
+      return;
+    }
+
+    for (let i = 0; i < this.workerCount; i++) {
+      const worker = new Worker(this.store, this.emitter, this.handler, {
+        pollIntervalMs: this.pollInterval,
+        lockTimeoutMs: this.lockTimeout,
+        workerId: `${this.id}-w${i}`,
+      });
+
+      this.workers.push(worker);
+      await worker.start();
+    }
   }
 
-  /**
-   * Stop scheduler gracefully
-   */
   async stop(): Promise<void> {
     if (!this.started) return;
 
     this.started = false;
+
+    for (const worker of this.workers) {
+      await worker.stop();
+    }
+
+    this.workers.length = 0;
+
     this.emitter.emitSafe("scheduler:stop", undefined);
-
-    // later:
-    // - stop workers
-    // - release locks
   }
 
-  /**
-   * Internal access for submodules
-   */
-  protected getEmitter(): SchedulerEmitter {
-    return this.emitter;
-  }
-
-  /**
-   * For testing / inspection
-   */
   isRunning(): boolean {
     return this.started;
   }
