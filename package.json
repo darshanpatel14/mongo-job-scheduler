@@ -11,6 +11,7 @@
     "dev": "ts-node src/index.ts"
   },
   "dependencies": {
+    "cron-parser": "^4.9.0",
     "mongodb": "^7.0.0"
   },
   "devDependencies": {

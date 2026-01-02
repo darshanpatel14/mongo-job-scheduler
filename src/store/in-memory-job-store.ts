@@ -52,6 +52,7 @@ export class InMemoryJobStore implements JobStore {
         job.lockedAt = now;
         job.lockedBy = workerId;
         job.updatedAt = new Date();
+        job.lastRunAt = now;
 
         return { ...job };
       }
@@ -67,6 +68,7 @@ export class InMemoryJobStore implements JobStore {
     if (!job) throw new JobNotFoundError();
 
     job.status = "completed";
+    job.lastRunAt = new Date();
     job.updatedAt = new Date();
   }
 
@@ -89,6 +91,7 @@ export class InMemoryJobStore implements JobStore {
     job.lockedAt = undefined;
     job.lockedBy = undefined;
     job.updatedAt = new Date();
+    job.lastScheduledAt = nextRunAt;
   }
 
   async recoverStaleJobs({

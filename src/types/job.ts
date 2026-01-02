@@ -11,6 +11,8 @@ export interface Job<Data = unknown> {
   status: JobStatus;
 
   nextRunAt: Date;
+  lastRunAt?: Date;
+  lastScheduledAt?: Date;
 
   lockedAt?: Date;
   lockedBy?: string;

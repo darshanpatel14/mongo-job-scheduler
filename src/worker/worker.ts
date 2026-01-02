@@ -4,6 +4,9 @@ import { Job } from "../types/job";
 import { WorkerOptions, JobHandler } from "./types";
 import { getRetryDelay } from "./retry";
 import { RetryOptions } from "../types/retry";
+import { getNextRunAt } from "./repeat";
+
+const CRON_SAFETY_WINDOW_MS = 5;
 
 export class Worker {
   private running = false;
@@ -65,11 +68,43 @@ export class Worker {
   private async execute(job: Job): Promise<void> {
     this.emitter.emitSafe("job:start", job);
 
+    const now = Date.now();
+
+    // ---------------------------
+    // CRON: pre-schedule BEFORE execution
+    // ---------------------------
+    if (job.repeat?.cron) {
+      let base = job.lastScheduledAt ?? job.nextRunAt ?? new Date(now);
+
+      let next = getNextRunAt(job.repeat, base);
+
+      // skip missed cron slots
+      while (next.getTime() <= now) {
+        base = next;
+        next = getNextRunAt(job.repeat, base);
+      }
+
+      // persist schedule immediately
+      job.lastScheduledAt = next;
+      await this.store.reschedule(job._id, next);
+    }
+
     try {
       await this.handler(job);
 
-      await this.store.markCompleted(job._id);
-      this.emitter.emitSafe("job:success", job);
+      // ---------------------------
+      // INTERVAL: schedule AFTER execution
+      // ---------------------------
+      if (job.repeat?.every != null) {
+        const next = new Date(Date.now() + Math.max(job.repeat.every, 100));
+        await this.store.reschedule(job._id, next);
+      }
+
+      if (!job.repeat) {
+        await this.store.markCompleted(job._id);
+        this.emitter.emitSafe("job:success", job);
+      }
+
       this.emitter.emitSafe("job:complete", job);
     } catch (err: any) {
       const error = err instanceof Error ? err : new Error(String(err));
@@ -77,23 +112,18 @@ export class Worker {
       const attempts = (job.attempts ?? 0) + 1;
       const retry = job.retry;
 
-      // Retry path
       if (retry && attempts < retry.maxAttempts) {
-        const delay = getRetryDelay(retry, attempts);
-        const nextRun = new Date(Date.now() + delay);
-
-        await this.store.reschedule(job._id, nextRun);
+        const nextRunAt = new Date(Date.now() + getRetryDelay(retry, attempts));
+        await this.store.reschedule(job._id, nextRunAt);
 
         this.emitter.emitSafe("job:retry", {
           ...job,
           attempts,
           lastError: error.message,
         });
-
         return;
       }
 
-      // Permanent failure
       await this.store.markFailed(job._id, error.message);
       this.emitter.emitSafe("job:fail", { job, error });
     }
