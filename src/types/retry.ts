@@ -1,12 +1,13 @@
 export interface RetryOptions {
   /**
-   * Maximum number of attempts (including first run)
+   * Total allowed attempts (including first)
    */
   maxAttempts: number;
 
   /**
-   * Delay before retry (ms)
-   * Can be static or computed dynamically
+   * Backoff strategy:
+   * - number = fixed delay (ms)
+   * - function = dynamic delay
    */
   delay: number | ((attempt: number) => number);
 }

@@ -2,6 +2,8 @@ import { JobStore } from "../store";
 import { SchedulerEmitter } from "../events";
 import { Job } from "../types/job";
 import { WorkerOptions, JobHandler } from "./types";
+import { getRetryDelay } from "./retry";
+import { RetryOptions } from "../types/retry";
 
 export class Worker {
   private running = false;
@@ -70,9 +72,30 @@ export class Worker {
       this.emitter.emitSafe("job:success", job);
       this.emitter.emitSafe("job:complete", job);
     } catch (err: any) {
-      this.emitter.emitSafe("job:fail", { job, error: err });
+      const error = err instanceof Error ? err : new Error(String(err));
 
-      await this.store.markFailed(job._id, err?.message ?? "Unknown error");
+      const attempts = (job.attempts ?? 0) + 1;
+      const retry = job.retry;
+
+      // Retry path
+      if (retry && attempts < retry.maxAttempts) {
+        const delay = getRetryDelay(retry, attempts);
+        const nextRun = new Date(Date.now() + delay);
+
+        await this.store.reschedule(job._id, nextRun);
+
+        this.emitter.emitSafe("job:retry", {
+          ...job,
+          attempts,
+          lastError: error.message,
+        });
+
+        return;
+      }
+
+      // Permanent failure
+      await this.store.markFailed(job._id, error.message);
+      this.emitter.emitSafe("job:fail", { job, error });
     }
   }
 

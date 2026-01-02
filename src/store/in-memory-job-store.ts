@@ -85,6 +85,7 @@ export class InMemoryJobStore implements JobStore {
 
     job.status = "pending";
     job.nextRunAt = nextRunAt;
+    job.attempts = (job.attempts ?? 0) + 1;
     job.lockedAt = undefined;
     job.lockedBy = undefined;
     job.updatedAt = new Date();
