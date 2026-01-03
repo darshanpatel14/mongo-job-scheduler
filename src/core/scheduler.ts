@@ -3,6 +3,7 @@ import { SchedulerEventMap } from "../types/events";
 import { JobStore } from "../store";
 import { Worker } from "../worker";
 import { Job } from "../types/job";
+import { ScheduleOptions } from "../types/schedule";
 
 export interface SchedulerOptions {
   id?: string;
@@ -47,6 +48,45 @@ export class Scheduler {
   ): this {
     this.emitter.on(event, listener);
     return this;
+  }
+
+  async schedule<T = unknown>(options: ScheduleOptions<T>): Promise<Job<T>> {
+    if (!this.store) {
+      throw new Error("Scheduler has no JobStore configured");
+    }
+
+    const now = new Date();
+
+    // ------------------------
+    // Validation
+    // ------------------------
+    if (!options.name) {
+      throw new Error("Job name is required");
+    }
+
+    if (options.repeat?.cron && options.repeat?.every != null) {
+      throw new Error("Use either cron or every, not both");
+    }
+
+    // ------------------------
+    // Normalize run time
+    // ------------------------
+    const nextRunAt = options.runAt ?? now;
+
+    const job: Job<T> = {
+      name: options.name,
+      data: options.data,
+      status: "pending",
+      attempts: 0,
+      nextRunAt,
+      retry: options.retry,
+      repeat: options.repeat,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const created = await this.store.create(job);
+    return created as Job<T>;
   }
 
   async start(): Promise<void> {

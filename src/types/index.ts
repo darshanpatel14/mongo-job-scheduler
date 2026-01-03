@@ -3,3 +3,4 @@ export * from "./retry";
 export * from "./repeat";
 export * from "./lifecycle";
 export * from "./events";
+export * from "./schedule";
