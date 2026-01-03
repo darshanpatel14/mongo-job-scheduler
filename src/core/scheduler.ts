@@ -89,6 +89,16 @@ export class Scheduler {
     return created as Job<T>;
   }
 
+  /**
+   * Cancel a job
+   */
+  async cancel(jobId: unknown): Promise<void> {
+    if (!this.store) {
+      throw new Error("Scheduler has no JobStore configured");
+    }
+    await this.store.cancel(jobId);
+  }
+
   async start(): Promise<void> {
     if (this.started) return;
     this.started = true;

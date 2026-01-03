@@ -90,6 +90,12 @@ export class Worker {
     }
 
     try {
+      const current = await this.store.findById(job._id);
+      if (current && current.status === "cancelled") {
+        this.emitter.emitSafe("job:complete", job);
+        return;
+      }
+
       await this.handler(job);
 
       // ---------------------------

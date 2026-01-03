@@ -134,5 +134,12 @@ export class InMemoryJobStore implements JobStore {
 
     job.status = "cancelled";
     job.updatedAt = new Date();
+    job.lockedAt = undefined;
+    job.lockedBy = undefined;
+  }
+
+  async findById(jobId: unknown): Promise<Job | null> {
+    const job = this.jobs.get(String(jobId));
+    return job ? { ...job } : null;
   }
 }

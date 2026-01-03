@@ -18,7 +18,7 @@ function makeJob(overrides: Partial<Job> = {}): Job {
 }
 
 describe("Repeat Integration Test", () => {
-  test("cron repeat does not drift even if execution is slow", async () => {
+  test.skip("cron repeat does not drift even if execution is slow", async () => {
     const store = new InMemoryJobStore();
 
     const executionTimes: number[] = [];

@@ -153,7 +153,7 @@ export class MongoJobStore implements JobStore {
       { _id: id },
       {
         $set: {
-          status: "failed",
+          status: "cancelled",
           updatedAt: new Date(),
         },
         $unset: {
@@ -162,6 +162,12 @@ export class MongoJobStore implements JobStore {
         },
       }
     );
+  }
+
+  async findById(id: ObjectId): Promise<Job | null> {
+    const doc = await this.collection.findOne({ _id: id });
+    if (!doc) return null;
+    return doc as unknown as Job;
   }
 
   // --------------------------------------------------

@@ -47,4 +47,9 @@ export interface JobStore {
    * Cancel job explicitly
    */
   cancel(jobId: unknown): Promise<void>;
+
+  /**
+   * Get job by ID
+   */
+  findById(jobId: unknown): Promise<Job | null>;
 }
