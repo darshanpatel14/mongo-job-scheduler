@@ -192,14 +192,15 @@ export class Scheduler {
     }
   }
 
-  async stop(): Promise<void> {
+  async stop(options?: {
+    graceful?: boolean;
+    timeoutMs?: number;
+  }): Promise<void> {
     if (!this.started) return;
 
     this.started = false;
 
-    for (const worker of this.workers) {
-      await worker.stop();
-    }
+    await Promise.all(this.workers.map((w) => w.stop(options)));
 
     this.workers.length = 0;
 

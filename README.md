@@ -147,6 +147,14 @@ See `ARCHITECTURE.md` for:
 - sharding strategy
 - production checklist
 
+## Graceful Shutdown
+
+Stop the scheduler and wait for in-flight jobs to complete:
+
+```typescript
+await scheduler.stop({ graceful: true, timeoutMs: 30000 });
+```
+
 ## Status
 
 **Early-stage but production-tested.**

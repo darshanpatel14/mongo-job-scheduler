@@ -26,20 +26,43 @@ export class Worker {
     this.defaultTimezone = options.defaultTimezone;
   }
 
+  private loopPromise?: Promise<void>;
+
   async start(): Promise<void> {
     if (this.running) return;
     this.running = true;
 
     this.emitter.emitSafe("worker:start", this.workerId);
 
-    this.loop().catch((err) => {
+    this.loopPromise = this.loop();
+    this.loopPromise.catch((err) => {
       this.emitter.emitSafe("worker:error", err as Error);
     });
   }
 
-  async stop(): Promise<void> {
+  async stop(options?: {
+    graceful?: boolean;
+    timeoutMs?: number;
+  }): Promise<void> {
     this.running = false;
     this.emitter.emitSafe("worker:stop", this.workerId);
+
+    if (options?.graceful && this.loopPromise) {
+      const timeoutMs = options.timeoutMs ?? 30000; // default 30s
+
+      const timeout = new Promise<void>((_, reject) =>
+        setTimeout(() => reject(new Error("Worker stop timed out")), timeoutMs)
+      );
+
+      try {
+        await Promise.race([this.loopPromise, timeout]);
+      } catch (err) {
+        if (err instanceof Error && err.message === "Worker stop timed out") {
+          return;
+        }
+        throw err;
+      }
+    }
   }
 
   private async loop(): Promise<void> {
