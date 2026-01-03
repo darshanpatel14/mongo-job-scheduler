@@ -39,6 +39,16 @@ export class MongoJobStore implements JobStore {
       updatedAt: now,
     };
 
+    if (job.dedupeKey) {
+      // Idempotent insert
+      const result = await this.collection.findOneAndUpdate(
+        { dedupeKey: job.dedupeKey },
+        { $setOnInsert: doc },
+        { upsert: true, returnDocument: "after" }
+      );
+      return result as unknown as Job;
+    }
+
     const result = await this.collection.insertOne(doc);
     return { ...doc, _id: result.insertedId };
   }

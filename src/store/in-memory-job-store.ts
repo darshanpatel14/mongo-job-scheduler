@@ -12,6 +12,14 @@ export class InMemoryJobStore implements JobStore {
   }
 
   async create(job: Job): Promise<Job> {
+    if (job.dedupeKey) {
+      for (const existing of this.jobs.values()) {
+        if (existing.dedupeKey === job.dedupeKey) {
+          return existing;
+        }
+      }
+    }
+
     const id = this.generateId();
 
     const stored: Job = {

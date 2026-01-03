@@ -81,6 +81,7 @@ export class Scheduler {
       nextRunAt,
       retry: options.retry,
       repeat: options.repeat,
+      dedupeKey: options.dedupeKey,
       createdAt: now,
       updatedAt: now,
     };
@@ -115,6 +116,7 @@ export class Scheduler {
         nextRunAt: options.runAt ?? new Date(),
         repeat: options.repeat,
         retry: options.retry,
+        dedupeKey: options.dedupeKey,
       } as Job;
     });
 

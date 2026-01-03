@@ -68,6 +68,18 @@ await scheduler.schedule(
 );
 ```
 
+## Job Deduplication
+
+Prevent duplicate jobs using `dedupeKey`. If a job with the same key exists, it returns the existing job instead of creating a new one.
+
+```typescript
+await scheduler.schedule({
+  name: "email",
+  data: { userId: 123 },
+  dedupeKey: "email:user:123",
+});
+```
+
 ## Job Cancellation
 
 ```typescript

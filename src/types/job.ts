@@ -23,6 +23,8 @@ export interface Job<Data = unknown> {
   retry?: RetryOptions;
   repeat?: RepeatOptions;
 
+  dedupeKey?: string;
+
   createdAt: Date;
   updatedAt: Date;
 }

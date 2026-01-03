@@ -20,4 +20,9 @@ export interface ScheduleOptions<T = unknown> {
    * Repeat configuration (cron or every)
    */
   repeat?: RepeatOptions;
+
+  /**
+   * Idempotency key to prevent duplicate jobs
+   */
+  dedupeKey?: string;
 }
