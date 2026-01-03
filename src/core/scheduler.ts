@@ -52,13 +52,21 @@ export class Scheduler {
 
     this.emitter.emitSafe("scheduler:start", undefined);
 
-    // future: recover stale jobs here
+    if (this.store && typeof this.store.recoverStaleJobs === "function") {
+      await this.store.recoverStaleJobs({
+        now: new Date(),
+        lockTimeoutMs: this.lockTimeout,
+      });
+    }
 
+    // lifecycle-only mode (used by tests)
     if (!this.store || !this.handler) {
-      // lifecycle-only mode (used by tests)
       return;
     }
 
+    // -------------------------------
+    // start workers
+    // -------------------------------
     for (let i = 0; i < this.workerCount; i++) {
       const worker = new Worker(this.store, this.emitter, this.handler, {
         pollIntervalMs: this.pollInterval,

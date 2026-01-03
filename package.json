@@ -8,7 +8,9 @@
   "scripts": {
     "build": "tsc",
     "test": "jest",
-    "dev": "ts-node src/index.ts"
+    "dev": "ts-node src/index.ts",
+    "test:mongo": "jest tests/mongo",
+    "test:stress": "jest tests/stress"
   },
   "dependencies": {
     "cron-parser": "^4.9.0",

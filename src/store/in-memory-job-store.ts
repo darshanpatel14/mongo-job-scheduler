@@ -81,13 +81,21 @@ export class InMemoryJobStore implements JobStore {
     job.updatedAt = new Date();
   }
 
-  async reschedule(jobId: unknown, nextRunAt: Date): Promise<void> {
+  async reschedule(
+    jobId: unknown,
+    nextRunAt: Date,
+    updates?: { attempts?: number }
+  ): Promise<void> {
     const job = this.jobs.get(String(jobId));
     if (!job) throw new JobNotFoundError();
 
     job.status = "pending";
     job.nextRunAt = nextRunAt;
-    job.attempts = (job.attempts ?? 0) + 1;
+    if (updates?.attempts != null) {
+      job.attempts = updates.attempts;
+    } else {
+      job.attempts = (job.attempts ?? 0) + 1;
+    }
     job.lockedAt = undefined;
     job.lockedBy = undefined;
     job.updatedAt = new Date();

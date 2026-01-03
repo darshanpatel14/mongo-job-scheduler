@@ -29,7 +29,11 @@ export interface JobStore {
   /**
    * Reschedule job (used for retry or repeat)
    */
-  reschedule(jobId: unknown, nextRunAt: Date): Promise<void>;
+  reschedule(
+    jobId: unknown,
+    nextRunAt: Date,
+    updates?: { attempts?: number; lastError?: string }
+  ): Promise<void>;
 
   /**
    * Recover jobs stuck in running state

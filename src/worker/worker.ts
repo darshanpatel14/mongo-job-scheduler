@@ -6,8 +6,6 @@ import { getRetryDelay } from "./retry";
 import { RetryOptions } from "../types/retry";
 import { getNextRunAt } from "./repeat";
 
-const CRON_SAFETY_WINDOW_MS = 5;
-
 export class Worker {
   private running = false;
   private readonly pollInterval: number;
@@ -114,7 +112,7 @@ export class Worker {
 
       if (retry && attempts < retry.maxAttempts) {
         const nextRunAt = new Date(Date.now() + getRetryDelay(retry, attempts));
-        await this.store.reschedule(job._id, nextRunAt);
+        await this.store.reschedule(job._id, nextRunAt, { attempts });
 
         this.emitter.emitSafe("job:retry", {
           ...job,
