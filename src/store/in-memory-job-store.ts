@@ -25,6 +25,10 @@ export class InMemoryJobStore implements JobStore {
     return stored;
   }
 
+  async createBulk(jobs: Job[]): Promise<Job[]> {
+    return Promise.all(jobs.map((job) => this.create(job)));
+  }
+
   async findAndLockNext({
     now,
     workerId,

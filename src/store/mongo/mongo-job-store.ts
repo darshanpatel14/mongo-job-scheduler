@@ -43,6 +43,30 @@ export class MongoJobStore implements JobStore {
     return { ...doc, _id: result.insertedId };
   }
 
+  async createBulk(jobs: Job[]): Promise<Job[]> {
+    const now = new Date();
+    const docs: MongoJob[] = jobs.map((job) => {
+      // IMPORTANT: strip _id completely
+      const { _id, ...jobWithoutId } = job;
+      return {
+        ...jobWithoutId,
+        status: job.status ?? "pending",
+        attempts: job.attempts ?? 0,
+        createdAt: now,
+        updatedAt: now,
+      };
+    });
+
+    if (docs.length === 0) return [];
+
+    const result = await this.collection.insertMany(docs);
+
+    return docs.map((doc, index) => ({
+      ...doc,
+      _id: result.insertedIds[index],
+    }));
+  }
+
   // --------------------------------------------------
   // ATOMIC FIND & LOCK
   // --------------------------------------------------

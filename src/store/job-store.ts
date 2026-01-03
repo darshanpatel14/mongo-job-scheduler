@@ -7,6 +7,11 @@ export interface JobStore {
   create(job: Job): Promise<Job>;
 
   /**
+   * Create multiple jobs in bulk
+   */
+  createBulk(jobs: Job[]): Promise<Job[]>;
+
+  /**
    * Find and lock the next runnable job.
    * Must be atomic.
    */

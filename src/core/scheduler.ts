@@ -86,7 +86,46 @@ export class Scheduler {
     };
 
     const created = await this.store.create(job);
+    this.emitter.emitSafe("job:created", created as Job);
     return created as Job<T>;
+  }
+
+  /**
+   * Schedule multiple jobs in bulk
+   */
+  async scheduleBulk<T = any>(
+    optionsList: ScheduleOptions<T>[]
+  ): Promise<Job<T>[]> {
+    if (!this.store) {
+      throw new Error("Scheduler not started or no store configured");
+    }
+
+    const jobs: Job[] = optionsList.map((options) => {
+      if (!options.name) {
+        throw new Error("Job name is required");
+      }
+      if (options.repeat?.cron && options.repeat.every) {
+        throw new Error("Cannot specify both cron and every");
+      }
+
+      return {
+        name: options.name,
+        data: options.data,
+        status: "pending",
+        nextRunAt: options.runAt ?? new Date(),
+        repeat: options.repeat,
+        retry: options.retry,
+      } as Job;
+    });
+
+    const createdJobs = await this.store.createBulk(jobs);
+
+    // Emit events for all created jobs
+    for (const job of createdJobs) {
+      this.emitter.emitSafe("job:created", job);
+    }
+
+    return createdJobs as Job<T>[];
   }
 
   /**
@@ -106,7 +145,15 @@ export class Scheduler {
     if (!this.store) {
       throw new Error("Scheduler has no JobStore configured");
     }
+
+    const job = await this.store.findById(jobId);
+
     await this.store.cancel(jobId);
+
+    if (job) {
+      const cancelledJob = { ...job, status: "cancelled" } as Job;
+      this.emitter.emitSafe("job:cancel", cancelledJob);
+    }
   }
 
   async start(): Promise<void> {
