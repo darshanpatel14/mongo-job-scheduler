@@ -232,4 +232,25 @@ export class MongoJobStore implements JobStore {
 
     return result.modifiedCount;
   }
+
+  async renewLock(id: ObjectId, workerId: string): Promise<void> {
+    const now = new Date();
+    const result = await this.collection.updateOne(
+      {
+        _id: id,
+        lockedBy: workerId,
+        status: "running",
+      },
+      {
+        $set: {
+          lockedAt: now,
+          updatedAt: now,
+        },
+      }
+    );
+
+    if (result.matchedCount === 0) {
+      throw new Error("Job lock lost or owner changed");
+    }
+  }
 }

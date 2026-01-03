@@ -112,10 +112,45 @@ export class Worker {
       await this.store.reschedule(job._id, next);
     }
 
+    // ---------------------------
+    // HEARTBEAT
+    // ---------------------------
+    const heartbeatIntervalMs = Math.max(50, this.lockTimeout / 2);
+    const heartbeatParams = {
+      jobId: job._id,
+      workerId: this.workerId,
+    };
+
+    let stopHeartbeat = false;
+
+    const heartbeatLoop = async () => {
+      while (!stopHeartbeat) {
+        await this.sleep(heartbeatIntervalMs);
+        if (stopHeartbeat) break;
+
+        try {
+          await this.store.renewLock(
+            heartbeatParams.jobId,
+            heartbeatParams.workerId
+          );
+        } catch (err) {
+          this.emitter.emitSafe(
+            "worker:error",
+            new Error(
+              `Heartbeat failed for job ${heartbeatParams.jobId}: ${err}`
+            )
+          );
+          break;
+        }
+      }
+    };
+    const heartbeatPromise = heartbeatLoop();
+
     try {
       const current = await this.store.findById(job._id);
       if (current && current.status === "cancelled") {
         this.emitter.emitSafe("job:complete", job);
+        stopHeartbeat = true; // stop fast
         return;
       }
 
@@ -150,11 +185,12 @@ export class Worker {
           attempts,
           lastError: error.message,
         });
-        return;
+      } else {
+        await this.store.markFailed(job._id, error.message);
+        this.emitter.emitSafe("job:fail", { job, error });
       }
-
-      await this.store.markFailed(job._id, error.message);
-      this.emitter.emitSafe("job:fail", { job, error });
+    } finally {
+      stopHeartbeat = true;
     }
   }
 

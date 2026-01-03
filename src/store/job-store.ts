@@ -57,4 +57,9 @@ export interface JobStore {
    * Get job by ID
    */
   findById(jobId: unknown): Promise<Job | null>;
+
+  /**
+   * Renew the lock for a running job (heartbeat)
+   */
+  renewLock(jobId: unknown, workerId: string): Promise<void>;
 }

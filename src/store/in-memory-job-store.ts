@@ -154,4 +154,16 @@ export class InMemoryJobStore implements JobStore {
     const job = this.jobs.get(String(jobId));
     return job ? { ...job } : null;
   }
+
+  async renewLock(jobId: unknown, workerId: string): Promise<void> {
+    const job = this.jobs.get(String(jobId));
+    if (!job) throw new JobNotFoundError();
+
+    if (job.status === "running" && job.lockedBy === workerId) {
+      job.lockedAt = new Date();
+      job.updatedAt = new Date();
+    } else {
+      throw new Error("Job lock lost or owner changed");
+    }
+  }
 }

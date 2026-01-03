@@ -21,6 +21,7 @@ Designed for distributed systems that need:
 - **Interval jobs**
 - **Resume on restart**
 - **Stale lock recovery**
+- **Automatic Lock Renewal** (Heartbeats): Long-running jobs automatically extend their lock.
 - **Sharding-safe design**
 
 ## Distributed Systems
@@ -74,6 +75,20 @@ await scheduler.schedule(
     },
   }
 );
+```
+
+## Interval Scheduling
+
+Run a job repeatedly with a fixed delay between executions (e.g., every 5 minutes).
+
+```typescript
+await scheduler.schedule({
+  name: "cleanup-logs",
+  data: {},
+  repeat: {
+    every: 5 * 60 * 1000, // 5 minutes in milliseconds
+  },
+});
 ```
 
 ## Job Deduplication
