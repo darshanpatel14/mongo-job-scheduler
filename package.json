@@ -6,7 +6,7 @@
   "author": "Darshan Bhut",
   "repository": {
     "type": "git",
-    "url": "https://github.com/darshanpatel14/mongo-job-scheduler.git"
+    "url": "git+https://github.com/darshanpatel14/mongo-job-scheduler.git"
   },
   "homepage": "https://github.com/darshanpatel14/mongo-job-scheduler#readme",
   "bugs": {
