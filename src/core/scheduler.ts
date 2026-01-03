@@ -13,6 +13,7 @@ export interface SchedulerOptions {
   workers?: number;
   pollIntervalMs?: number;
   lockTimeoutMs?: number;
+  defaultTimezone?: string;
 }
 
 export class Scheduler {
@@ -26,6 +27,7 @@ export class Scheduler {
   private readonly workerCount: number;
   private readonly pollInterval: number;
   private readonly lockTimeout: number;
+  private readonly defaultTimezone?: string;
 
   constructor(options: SchedulerOptions = {}) {
     this.id = options.id ?? `scheduler-${Math.random().toString(36).slice(2)}`;
@@ -36,6 +38,7 @@ export class Scheduler {
     this.workerCount = options.workers ?? 1;
     this.pollInterval = options.pollIntervalMs ?? 500;
     this.lockTimeout = options.lockTimeoutMs ?? 30_000;
+    this.defaultTimezone = options.defaultTimezone;
   }
 
   on<K extends keyof SchedulerEventMap>(
@@ -72,6 +75,7 @@ export class Scheduler {
         pollIntervalMs: this.pollInterval,
         lockTimeoutMs: this.lockTimeout,
         workerId: `${this.id}-w${i}`,
+        defaultTimezone: this.defaultTimezone,
       });
 
       this.workers.push(worker);

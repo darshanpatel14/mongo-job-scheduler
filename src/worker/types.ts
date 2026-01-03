@@ -17,4 +17,9 @@ export interface WorkerOptions {
    * Worker id (used for locking)
    */
   workerId?: string;
+
+  /**
+   * Default timezone for cron scheduling
+   */
+  defaultTimezone?: string;
 }

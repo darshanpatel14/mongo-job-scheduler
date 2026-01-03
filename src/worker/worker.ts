@@ -11,6 +11,7 @@ export class Worker {
   private readonly pollInterval: number;
   private readonly lockTimeout: number;
   private readonly workerId: string;
+  private readonly defaultTimezone?: string;
 
   constructor(
     private readonly store: JobStore,
@@ -22,6 +23,7 @@ export class Worker {
     this.lockTimeout = options.lockTimeoutMs ?? 30_000;
     this.workerId =
       options.workerId ?? `worker-${Math.random().toString(36).slice(2)}`;
+    this.defaultTimezone = options.defaultTimezone;
   }
 
   async start(): Promise<void> {
@@ -74,12 +76,12 @@ export class Worker {
     if (job.repeat?.cron) {
       let base = job.lastScheduledAt ?? job.nextRunAt ?? new Date(now);
 
-      let next = getNextRunAt(job.repeat, base);
+      let next = getNextRunAt(job.repeat, base, this.defaultTimezone);
 
       // skip missed cron slots
       while (next.getTime() <= now) {
         base = next;
-        next = getNextRunAt(job.repeat, base);
+        next = getNextRunAt(job.repeat, base, this.defaultTimezone);
       }
 
       // persist schedule immediately
