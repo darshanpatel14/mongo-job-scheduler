@@ -23,6 +23,14 @@ Designed for distributed systems that need:
 - **Stale lock recovery**
 - **Sharding-safe design**
 
+## Distributed Systems
+
+This library is designed for distributed environments. You can run **multiple scheduler instances** (on different servers, pods, or processes) connected to the same MongoDB.
+
+- **Atomic Locking**: Uses `findOneAndUpdate` to safe-guard against race conditions.
+- **Concurrency**: Only one worker will execute a given job instance.
+- **Scalable**: Horizontal scaling is supported via MongoDB sharding.
+
 ---
 
 ## Install
