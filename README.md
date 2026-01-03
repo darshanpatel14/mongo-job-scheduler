@@ -116,6 +116,18 @@ await scheduler.cancel(jobId);
 const job = await scheduler.getJob(jobId);
 ```
 
+## Job Persistence & Updates
+
+Update job `data`, reschedule, or modify configuration safely.
+
+```typescript
+await scheduler.updateJob(jobId, {
+  data: { page: 2 },
+  nextRunAt: new Date(Date.now() + 60000), // delay by 1 min
+  repeat: { every: 60000 }, // Change to run every minute
+});
+```
+
 ## Bulk Scheduling
 
 For high-performance ingestion, use `scheduleBulk` to insert multiple jobs in a single database operation:

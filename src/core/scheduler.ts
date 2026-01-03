@@ -1,6 +1,6 @@
 import { SchedulerEmitter } from "../events";
 import { SchedulerEventMap } from "../types/events";
-import { JobStore } from "../store";
+import { JobStore, JobUpdates } from "../store";
 import { Worker } from "../worker";
 import { Job } from "../types/job";
 import { ScheduleOptions } from "../types/schedule";
@@ -138,6 +138,16 @@ export class Scheduler {
       throw new Error("Scheduler has no JobStore configured");
     }
     return this.store.findById(jobId);
+  }
+
+  /**
+   * Update job data or schedule
+   */
+  async updateJob(jobId: unknown, updates: JobUpdates): Promise<void> {
+    if (!this.store) {
+      throw new Error("Scheduler has no JobStore configured");
+    }
+    await this.store.update(jobId, updates);
   }
 
   /**

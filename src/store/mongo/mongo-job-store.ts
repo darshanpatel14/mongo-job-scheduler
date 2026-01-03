@@ -1,5 +1,5 @@
 import { Collection, Db, ObjectId } from "mongodb";
-import { JobStore } from "../job-store";
+import { JobStore, JobUpdates } from "../job-store";
 import { Job } from "../../types/job";
 
 type MongoJob<T = unknown> = Omit<Job<T>, "_id"> & {
@@ -252,5 +252,17 @@ export class MongoJobStore implements JobStore {
     if (result.matchedCount === 0) {
       throw new Error("Job lock lost or owner changed");
     }
+  }
+
+  async update(id: ObjectId, updates: JobUpdates): Promise<void> {
+    if (Object.keys(updates).length === 0) return;
+
+    const $set: any = { updatedAt: new Date() };
+    if (updates.data !== undefined) $set.data = updates.data;
+    if (updates.nextRunAt !== undefined) $set.nextRunAt = updates.nextRunAt;
+    if (updates.retry !== undefined) $set.retry = updates.retry;
+    if (updates.repeat !== undefined) $set.repeat = updates.repeat;
+
+    await this.collection.updateOne({ _id: id }, { $set });
   }
 }

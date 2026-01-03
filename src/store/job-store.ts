@@ -62,4 +62,19 @@ export interface JobStore {
    * Renew the lock for a running job (heartbeat)
    */
   renewLock(jobId: unknown, workerId: string): Promise<void>;
+
+  /**
+   * Update job properties (data persistence)
+   */
+  update(jobId: unknown, updates: JobUpdates): Promise<void>;
+}
+
+import { RetryOptions } from "../types/retry";
+import { RepeatOptions } from "../types/repeat";
+
+export interface JobUpdates {
+  data?: unknown;
+  nextRunAt?: Date;
+  retry?: RetryOptions;
+  repeat?: RepeatOptions;
 }

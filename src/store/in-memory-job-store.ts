@@ -1,5 +1,5 @@
 import { Job } from "../types/job";
-import { JobStore } from "./job-store";
+import { JobStore, JobUpdates } from "./job-store";
 import { JobNotFoundError, JobLockError } from "./store-errors";
 import { Mutex } from "./mutex";
 
@@ -165,5 +165,24 @@ export class InMemoryJobStore implements JobStore {
     } else {
       throw new Error("Job lock lost or owner changed");
     }
+  }
+
+  async update(jobId: unknown, updates: JobUpdates): Promise<void> {
+    const job = this.jobs.get(String(jobId));
+    if (!job) throw new JobNotFoundError();
+
+    if (updates.data !== undefined) {
+      job.data = updates.data;
+    }
+    if (updates.nextRunAt !== undefined) {
+      job.nextRunAt = updates.nextRunAt;
+    }
+    if (updates.retry !== undefined) {
+      job.retry = updates.retry;
+    }
+    if (updates.repeat !== undefined) {
+      job.repeat = updates.repeat;
+    }
+    job.updatedAt = new Date();
   }
 }
