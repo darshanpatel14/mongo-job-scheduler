@@ -65,16 +65,14 @@ await scheduler.start();
 ## Cron with Timezone
 
 ```typescript
-await scheduler.schedule(
-  "daily-report",
-  { type: "report" }, // payload
-  {
-    repeat: {
-      cron: "0 9 * * *",
-      timezone: "Asia/Kolkata", // default is UTC
-    },
-  }
-);
+await scheduler.schedule({
+  name: "daily-report",
+  // data: { type: "report" }, // optional payload
+  repeat: {
+    cron: "0 9 * * *",
+    timezone: "Asia/Kolkata", // default is UTC
+  },
+});
 ```
 
 ## Interval Scheduling

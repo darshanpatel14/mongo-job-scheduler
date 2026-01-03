@@ -6,7 +6,7 @@ export interface Job<Data = unknown> {
   _id?: unknown;
 
   name: string;
-  data: Data;
+  data?: Data;
 
   status: JobStatus;
 

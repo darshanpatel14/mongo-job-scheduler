@@ -3,7 +3,7 @@ import { RepeatOptions } from "./repeat";
 
 export interface ScheduleOptions<T = unknown> {
   name: string;
-  data: T;
+  data?: T;
 
   /**
    * When the job should first run.
