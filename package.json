@@ -1,15 +1,50 @@
 {
   "name": "mongo-job-scheduler",
   "version": "0.1.0",
-  "type": "module",
+  "description": "Production-grade MongoDB-backed job scheduler with retries, cron, timezone support, and crash recovery",
+  "license": "MIT",
+  "author": "Darshan Bhut",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/darshanpatel14/mongo-job-scheduler.git"
+  },
+  "homepage": "https://github.com/darshanpatel14/mongo-job-scheduler#readme",
+  "bugs": {
+    "url": "https://github.com/darshanpatel14/mongo-job-scheduler/issues"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "keywords": [
+    "job-scheduler",
+    "mongodb",
+    "mongo",
+    "cron",
+    "cron-jobs",
+    "background-jobs",
+    "task-scheduler",
+    "distributed-jobs",
+    "queue",
+    "retry",
+    "backoff",
+    "worker",
+    "agenda",
+    "bull",
+    "node-cron",
+    "timezone",
+    "scheduler"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "jest",
-    "dev": "ts-node src/index.ts",
     "test:mongo": "jest tests/mongo",
-    "test:stress": "jest tests/stress"
+    "test:stress": "jest tests/stress",
+    "prepublishOnly": "npm run build && npm test"
   },
   "dependencies": {
     "cron-parser": "^4.9.0",
