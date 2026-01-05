@@ -38,7 +38,7 @@ export class Scheduler {
 
     this.workerCount = options.workers ?? 1;
     this.pollInterval = options.pollIntervalMs ?? 500;
-    this.lockTimeout = options.lockTimeoutMs ?? 30_000;
+    this.lockTimeout = options.lockTimeoutMs ?? 10 * 60 * 1000; // default 10 minutes
     this.defaultTimezone = options.defaultTimezone;
   }
 

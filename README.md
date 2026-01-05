@@ -21,7 +21,7 @@ Designed for distributed systems that need:
 - **Interval jobs**
 - **Resume on restart**
 - **Stale lock recovery**
-- **Automatic Lock Renewal** (Heartbeats): Long-running jobs automatically extend their lock.
+- **Automatic Lock Renewal** (Heartbeats): Long-running jobs automatically extend their lock. Default lock timeout is 10 minutes.
 - **Sharding-safe design**
 
 ## Distributed Systems
@@ -60,6 +60,28 @@ const scheduler = new Scheduler({
 });
 
 await scheduler.start();
+```
+
+## Retries
+
+You can configure retries using a simple number (for attempts with instant retry) or a detailed object:
+
+```typescript
+// Shorthand: 3 max attempts, 0 delay
+await scheduler.schedule({
+  name: "email",
+  retry: 3,
+});
+
+// Full configuration
+await scheduler.schedule({
+  name: "webhook",
+  retry: {
+    maxAttempts: 5,
+    delay: 1000, // 1 second fixed delay
+    // delay: (attempt) => attempt * 1000 // or dynamic backoff
+  },
+});
 ```
 
 ## Cron with Timezone

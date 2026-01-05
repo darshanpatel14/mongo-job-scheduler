@@ -20,7 +20,7 @@ export class Worker {
     options: WorkerOptions = {}
   ) {
     this.pollInterval = options.pollIntervalMs ?? 500;
-    this.lockTimeout = options.lockTimeoutMs ?? 30_000;
+    this.lockTimeout = options.lockTimeoutMs ?? 10 * 60 * 1000; // default 10 minutes
     this.workerId =
       options.workerId ?? `worker-${Math.random().toString(36).slice(2)}`;
     this.defaultTimezone = options.defaultTimezone;
@@ -174,7 +174,11 @@ export class Worker {
       const error = err instanceof Error ? err : new Error(String(err));
 
       const attempts = (job.attempts ?? 0) + 1;
-      const retry = job.retry;
+      let retry = job.retry;
+
+      if (typeof retry === "number") {
+        retry = { maxAttempts: retry, delay: 0 };
+      }
 
       if (retry && attempts < retry.maxAttempts) {
         const nextRunAt = new Date(Date.now() + getRetryDelay(retry, attempts));

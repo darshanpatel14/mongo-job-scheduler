@@ -1,4 +1,4 @@
-import { Scheduler } from "../../src/core/scheduler";
+import { Scheduler, RetryOptions } from "../../src";
 import { InMemoryJobStore } from "../../src/store/in-memory-job-store";
 import { Job } from "../../src/types/job";
 
@@ -210,5 +210,35 @@ describe("Retry Integration Test", () => {
     await scheduler.stop();
 
     expect(attempts).toBe(2);
+  });
+  test("retry: number shorthand works (maxAttempts=N, delay=0)", async () => {
+    const store = new InMemoryJobStore();
+    let attempts = 0;
+
+    const scheduler = new Scheduler({
+      store,
+      workers: 1,
+      pollIntervalMs: 10,
+      handler: async () => {
+        attempts++;
+        throw new Error("fail");
+      },
+    });
+
+    // using retry: 3 shorthand
+    // internally this should become { maxAttempts: 3, delay: 0 }
+    await scheduler.schedule({
+      name: "shorthand-job",
+      retry: 3,
+    });
+
+    await scheduler.start();
+
+    // Give it enough time to retry 3 times (delay is 0)
+    await sleep(200);
+    await scheduler.stop();
+
+    // Verify it attempted exactly 3 times
+    expect(attempts).toBe(3);
   });
 });

@@ -20,7 +20,7 @@ export interface Job<Data = unknown> {
   attempts: number;
   lastError?: string;
 
-  retry?: RetryOptions;
+  retry?: RetryOptions | number;
   repeat?: RepeatOptions;
 
   dedupeKey?: string;

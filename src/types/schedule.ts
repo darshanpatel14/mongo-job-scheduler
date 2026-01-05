@@ -14,7 +14,7 @@ export interface ScheduleOptions<T = unknown> {
   /**
    * Retry configuration
    */
-  retry?: RetryOptions;
+  retry?: RetryOptions | number;
 
   /**
    * Repeat configuration (cron or every)
