@@ -7,13 +7,15 @@ export async function setupMongo(): Promise<Db> {
   client = new MongoClient("mongodb://localhost:27017");
   await client.connect();
 
-  db = client.db("scheduler_test");
-  await db.collection("scheduler_jobs").deleteMany({});
-
+  const dbName = `scheduler_test_${Math.random().toString(36).slice(2)}`;
+  db = client.db(dbName);
   return db;
 }
 
 export async function teardownMongo() {
+  if (db) {
+    await db.dropDatabase();
+  }
   if (client) {
     await client.close();
   }
