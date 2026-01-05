@@ -79,14 +79,32 @@ await scheduler.schedule({
 ### Interval Jobs
 
 ```typescript
+// Using milliseconds directly
 await scheduler.schedule({
   name: "cleanup-logs",
   data: {},
   repeat: {
-    every: 5 * 60 * 1000, // every 5 minutes (in milliseconds)
+    every: 5 * 60 * 1000, // every 5 minutes
   },
 });
+
+// Helper pattern for human-readable intervals
+const minutes = (n: number) => n * 60 * 1000;
+const hours = (n: number) => n * 60 * 60 * 1000;
+const days = (n: number) => n * 24 * 60 * 60 * 1000;
+
+await scheduler.schedule({
+  name: "daily-backup",
+  repeat: { every: days(1) }, // 1 day
+});
+
+await scheduler.schedule({
+  name: "hourly-sync",
+  repeat: { every: hours(2) }, // 2 hours
+});
 ```
+
+> **📌 Repeat Job Status**: Repeating jobs cycle through `pending` → `running` → `pending` (rescheduled). The same job document is reused with an updated `nextRunAt`. Jobs stay in the database until cancelled.
 
 ### Bulk Scheduling
 
