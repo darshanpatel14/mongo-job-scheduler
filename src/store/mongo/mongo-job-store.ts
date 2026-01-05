@@ -1,6 +1,7 @@
 import { Collection, Db, ObjectId } from "mongodb";
 import { JobStore, JobUpdates } from "../job-store";
 import { Job } from "../../types/job";
+import { JobQuery } from "../../types/query";
 
 type MongoJob<T = unknown> = Omit<Job<T>, "_id"> & {
   _id?: ObjectId;
@@ -20,6 +21,36 @@ export class MongoJobStore implements JobStore {
       options.collectionName ?? "scheduler_jobs"
     );
     this.defaultLockTimeoutMs = options.lockTimeoutMs ?? 30_000;
+
+    // Auto-create indexes for performance
+    this.ensureIndexes().catch((err) => {
+      console.error("Failed to create indexes:", err);
+    });
+  }
+
+  /**
+   * Create necessary indexes for optimal query performance
+   */
+  private async ensureIndexes(): Promise<void> {
+    await Promise.all([
+      // Primary index for job polling (findAndLockNext)
+      this.collection.createIndex(
+        { status: 1, nextRunAt: 1 },
+        { background: true }
+      ),
+
+      // Index for deduplication
+      this.collection.createIndex(
+        { dedupeKey: 1 },
+        { unique: true, sparse: true, background: true }
+      ),
+
+      // Index for stale lock recovery
+      this.collection.createIndex(
+        { lockedAt: 1 },
+        { sparse: true, background: true }
+      ),
+    ]);
   }
 
   // --------------------------------------------------
@@ -264,5 +295,36 @@ export class MongoJobStore implements JobStore {
     if (updates.repeat !== undefined) $set.repeat = updates.repeat;
 
     await this.collection.updateOne({ _id: id }, { $set });
+  }
+
+  async findAll(query: JobQuery): Promise<Job[]> {
+    const filter: any = {};
+
+    if (query.name) {
+      filter.name = query.name;
+    }
+    if (query.status) {
+      filter.status = Array.isArray(query.status)
+        ? { $in: query.status }
+        : query.status;
+    }
+
+    let cursor = this.collection.find(filter);
+
+    if (query.sort) {
+      cursor = cursor.sort({
+        [query.sort.field]: query.sort.order === "asc" ? 1 : -1,
+      });
+    }
+
+    if (query.skip) {
+      cursor = cursor.skip(query.skip);
+    }
+    if (query.limit) {
+      cursor = cursor.limit(query.limit);
+    }
+
+    const docs = await cursor.toArray();
+    return docs as unknown as Job[];
   }
 }

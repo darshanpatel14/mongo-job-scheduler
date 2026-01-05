@@ -67,10 +67,16 @@ export interface JobStore {
    * Update job properties (data persistence)
    */
   update(jobId: unknown, updates: JobUpdates): Promise<void>;
+
+  /**
+   * Find all jobs matching query
+   */
+  findAll(query: JobQuery): Promise<Job[]>;
 }
 
 import { RetryOptions } from "../types/retry";
 import { RepeatOptions } from "../types/repeat";
+import { JobQuery } from "../types/query";
 
 export interface JobUpdates {
   data?: unknown;

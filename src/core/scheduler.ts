@@ -4,6 +4,7 @@ import { JobStore, JobUpdates } from "../store";
 import { Worker } from "../worker";
 import { Job } from "../types/job";
 import { ScheduleOptions } from "../types/schedule";
+import { JobQuery } from "../types/query";
 
 export interface SchedulerOptions {
   id?: string;
@@ -138,6 +139,16 @@ export class Scheduler {
       throw new Error("Scheduler has no JobStore configured");
     }
     return this.store.findById(jobId);
+  }
+
+  /**
+   * Query jobs
+   */
+  async getJobs(query: JobQuery): Promise<Job[]> {
+    if (!this.store) {
+      throw new Error("Scheduler has no JobStore configured");
+    }
+    return this.store.findAll(query);
   }
 
   /**

@@ -1,5 +1,6 @@
 import { Job } from "../types/job";
 import { JobStore, JobUpdates } from "./job-store";
+import { JobQuery } from "../types/query";
 import { JobNotFoundError, JobLockError } from "./store-errors";
 import { Mutex } from "./mutex";
 
@@ -184,5 +185,36 @@ export class InMemoryJobStore implements JobStore {
       job.repeat = updates.repeat;
     }
     job.updatedAt = new Date();
+  }
+
+  async findAll(query: JobQuery): Promise<Job[]> {
+    let jobs = Array.from(this.jobs.values());
+
+    // Filter
+    if (query.name) {
+      jobs = jobs.filter((j) => j.name === query.name);
+    }
+    if (query.status) {
+      const statuses = Array.isArray(query.status)
+        ? query.status
+        : [query.status];
+      jobs = jobs.filter((j) => statuses.includes(j.status));
+    }
+
+    // Sort
+    if (query.sort) {
+      const { field, order } = query.sort;
+      jobs.sort((a, b) => {
+        const valA = (a[field] as Date).getTime();
+        const valB = (b[field] as Date).getTime();
+        return order === "asc" ? valA - valB : valB - valA;
+      });
+    }
+
+    // Skip/Limit
+    const start = query.skip ?? 0;
+    const end = query.limit ? start + query.limit : undefined;
+
+    return jobs.slice(start, end);
   }
 }

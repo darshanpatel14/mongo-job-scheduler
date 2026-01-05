@@ -1,52 +1,40 @@
 # Mongo Job Scheduler
 
-A production-grade MongoDB-backed job scheduler for Node.js.
+A production-grade MongoDB-backed job scheduler for Node.js with distributed locking, retries, cron scheduling, and crash recovery.
 
-Designed for distributed systems that need:
-
-- reliable background jobs
-- retries with backoff
-- cron & interval scheduling
-- crash recovery
-- MongoDB sharding safety
+[![npm version](https://img.shields.io/npm/v/mongo-job-scheduler.svg)](https://www.npmjs.com/package/mongo-job-scheduler)
 
 ---
 
 ## Features
 
-- **Distributed locking** using MongoDB
-- **Multiple workers** support
-- **Retry with backoff**
-- **Cron jobs** (timezone-aware, non-drifting)
-- **Interval jobs**
-- **Resume on restart**
-- **Stale lock recovery**
-- **Automatic Lock Renewal** (Heartbeats): Long-running jobs automatically extend their lock. Default lock timeout is 10 minutes.
-- **Sharding-safe design**
-
-## Distributed Systems
-
-This library is designed for distributed environments. You can run **multiple scheduler instances** (on different servers, pods, or processes) connected to the same MongoDB.
-
-- **Atomic Locking**: Uses `findOneAndUpdate` to safe-guard against race conditions.
-- **Concurrency**: Only one worker will execute a given job instance.
-- **Scalable**: Horizontal scaling is supported via MongoDB sharding.
+- ✅ **Distributed locking** — safe for multiple instances
+- ✅ **Atomic job execution** — no double processing
+- ✅ **Automatic retries** — with configurable backoff
+- ✅ **Cron scheduling** — timezone-aware, non-drifting
+- ✅ **Interval jobs** — repeated execution
+- ✅ **Crash recovery** — resume on restart
+- ✅ **Heartbeats** — automatic lock renewal for long jobs
+- ✅ **Query API** — filter, sort, paginate jobs
+- ✅ **Auto-indexing** — performance optimized out of the box
+- ✅ **Sharding-safe** — designed for MongoDB sharding
 
 ---
 
-## Install
+## Quick Start
+
+### Installation
 
 ```bash
 npm install mongo-job-scheduler
 ```
 
-## Basic Usage
+### Basic Usage
 
 ```typescript
 import { Scheduler, MongoJobStore } from "mongo-job-scheduler";
 import { MongoClient } from "mongodb";
 
-// ... connect to mongo ...
 const client = new MongoClient("mongodb://localhost:27017");
 await client.connect();
 const db = client.db("my-app");
@@ -62,155 +50,204 @@ const scheduler = new Scheduler({
 await scheduler.start();
 ```
 
-## Retries
+---
 
-You can configure retries using a simple number (for attempts with instant retry) or a detailed object:
+## Scheduling Jobs
+
+### One-Time Job
 
 ```typescript
-// Shorthand: 3 max attempts, 0 delay
 await scheduler.schedule({
-  name: "email",
-  retry: 3,
-});
-
-// Full configuration
-await scheduler.schedule({
-  name: "webhook",
-  retry: {
-    maxAttempts: 5,
-    delay: 1000, // 1 second fixed delay
-    // delay: (attempt) => attempt * 1000 // or dynamic backoff
-  },
+  name: "send-email",
+  data: { userId: 123 },
+  runAt: new Date(Date.now() + 60000), // run in 1 minute
 });
 ```
 
-## Cron with Timezone
+### Cron Jobs (Timezone-Aware)
 
 ```typescript
 await scheduler.schedule({
   name: "daily-report",
-  // data: { type: "report" }, // optional payload
   repeat: {
-    cron: "0 9 * * *",
+    cron: "0 9 * * *", // every day at 9 AM
     timezone: "Asia/Kolkata", // default is UTC
   },
 });
 ```
 
-## Interval Scheduling
-
-Run a job repeatedly with a fixed delay between executions (e.g., every 5 minutes).
+### Interval Jobs
 
 ```typescript
 await scheduler.schedule({
   name: "cleanup-logs",
   data: {},
   repeat: {
-    every: 5 * 60 * 1000, // 5 minutes in milliseconds
+    every: 5 * 60 * 1000, // every 5 minutes (in milliseconds)
   },
 });
 ```
 
-## Job Deduplication
+### Bulk Scheduling
 
-Prevent duplicate jobs using `dedupeKey`. If a job with the same key exists, it returns the existing job instead of creating a new one.
-
-```typescript
-await scheduler.schedule({
-  name: "email",
-  data: { userId: 123 },
-  dedupeKey: "email:user:123",
-});
-```
-
-## Job Cancellation
-
-```typescript
-// Cancel a pending or running job
-await scheduler.cancel(jobId);
-```
-
-## Job Querying
-
-```typescript
-const job = await scheduler.getJob(jobId);
-```
-
-## Job Persistence & Updates
-
-Update job `data`, reschedule, or modify configuration safely.
-
-```typescript
-await scheduler.updateJob(jobId, {
-  data: { page: 2 },
-  nextRunAt: new Date(Date.now() + 60000), // delay by 1 min
-  repeat: { every: 60000 }, // Change to run every minute
-});
-```
-
-## Bulk Scheduling
-
-For high-performance ingestion, use `scheduleBulk` to insert multiple jobs in a single database operation:
+For high-performance ingestion:
 
 ```typescript
 const jobs = await scheduler.scheduleBulk([
   { name: "email", data: { userId: 1 } },
   { name: "email", data: { userId: 2 } },
+  { name: "email", data: { userId: 3 } },
 ]);
 ```
 
-## Events
+---
 
-The scheduler emits typed events for lifecycle monitoring.
+## Job Management
+
+### Get Job by ID
 
 ```typescript
-// Scheduler events
-scheduler.on("scheduler:start", () => console.log("Scheduler started"));
-scheduler.on("scheduler:stop", () => console.log("Scheduler stopped"));
-scheduler.on("scheduler:error", (err) =>
-  console.error("Scheduler error:", err)
-);
+const job = await scheduler.getJob(jobId);
+```
 
-// Worker events
-scheduler.on("worker:start", (workerId) =>
-  console.log("Worker started:", workerId)
-);
-scheduler.on("worker:stop", (workerId) =>
-  console.log("Worker stopped:", workerId)
-);
+### Query Jobs
 
-// Job events
-scheduler.on("job:created", (job) => console.log("Job created:", job._id));
-scheduler.on("job:start", (job) => console.log("Job processing:", job._id));
+List jobs with filtering, sorting, and pagination:
+
+```typescript
+const jobs = await scheduler.getJobs({
+  name: "daily-report",
+  status: "failed", // or ["failed", "pending"]
+  sort: { field: "updatedAt", order: "desc" },
+  limit: 10,
+  skip: 0,
+});
+```
+
+### Update Job
+
+Update job data, reschedule, or modify configuration:
+
+```typescript
+await scheduler.updateJob(jobId, {
+  data: { page: 2 },
+  nextRunAt: new Date(Date.now() + 60000), // delay by 1 min
+  repeat: { every: 60000 }, // change to run every minute
+});
+```
+
+### Cancel Job
+
+```typescript
+await scheduler.cancel(jobId);
+```
+
+---
+
+## Advanced Features
+
+### Retries with Backoff
+
+```typescript
+// Simple: 3 attempts with instant retry
+await scheduler.schedule({
+  name: "webhook",
+  retry: 3,
+});
+
+// Advanced: custom delay and backoff
+await scheduler.schedule({
+  name: "api-call",
+  retry: {
+    maxAttempts: 5,
+    delay: 1000, // 1 second fixed delay
+    // or: delay: (attempt) => attempt * 1000 // dynamic backoff
+  },
+});
+```
+
+### Job Deduplication
+
+Prevent duplicate jobs using idempotency keys:
+
+```typescript
+await scheduler.schedule({
+  name: "email",
+  data: { userId: 123 },
+  dedupeKey: "email:user:123", // only one job with this key
+});
+```
+
+### Event Monitoring
+
+```typescript
 scheduler.on("job:success", (job) => console.log("Job done:", job._id));
 scheduler.on("job:fail", ({ job, error }) =>
   console.error("Job failed:", job._id, error)
 );
 scheduler.on("job:retry", (job) =>
-  console.warn("Job retrying:", job._id, job.attempts)
+  console.warn("Retrying:", job._id, "attempt", job.attempts)
 );
-scheduler.on("job:cancel", (job) => console.log("Job cancelled:", job._id));
+
+// More events: scheduler:start, scheduler:stop, worker:start,
+// worker:stop, job:created, job:start, job:cancel
 ```
+
+### Graceful Shutdown
+
+Wait for in-flight jobs to complete:
+
+```typescript
+await scheduler.stop({
+  graceful: true,
+  timeoutMs: 30000,
+});
+```
+
+---
+
+## Performance & Scaling
+
+### Automatic Indexing
+
+**MongoDB indexes are created automatically** when you initialize `MongoJobStore`. No manual setup required.
+
+The library creates three indexes in background mode:
+
+- `{ status: 1, nextRunAt: 1 }` — for job polling (critical)
+- `{ dedupeKey: 1 }` — for deduplication (unique)
+- `{ lockedAt: 1 }` — for stale lock recovery
+
+These indexes prevent query time from degrading from O(log n) to O(n) at scale.
+
+### Distributed Systems
+
+Run **multiple scheduler instances** (different servers, pods, or processes) connected to the same MongoDB:
+
+- **Atomic Locking** — uses `findOneAndUpdate` to prevent race conditions
+- **Concurrency Control** — only one worker executes a job instance
+- **Horizontally Scalable** — supports MongoDB sharding
+
+See `architecture.md` for sharding strategy and production guidelines.
+
+---
 
 ## Documentation
 
-See `ARCHITECTURE.md` for:
+- **`architecture.md`** — Internal design, MongoDB schema, sharding strategy, production checklist
+- **Job lifecycle** — pending → running → completed/failed
+- **Retry & repeat semantics** — at-most-once guarantees
+- **Correctness guarantees** — what we ensure and what we don't
 
-- job lifecycle
-- retry & repeat semantics
-- MongoDB indexes
-- sharding strategy
-- production checklist
-
-## Graceful Shutdown
-
-Stop the scheduler and wait for in-flight jobs to complete:
-
-```typescript
-await scheduler.stop({ graceful: true, timeoutMs: 30000 });
-```
+---
 
 ## Status
 
-**Early-stage but production-tested.**
+**Early-stage but production-tested.**  
 API may evolve before 1.0.0.
+
+---
+
+## License
+
+MIT
