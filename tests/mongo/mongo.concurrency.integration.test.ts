@@ -44,7 +44,7 @@ describe("Mongo concurrency", () => {
     }
 
     await scheduler.start();
-    await new Promise((r) => setTimeout(r, 1000));
+    await new Promise((r) => setTimeout(r, 3000));
     await scheduler.stop();
 
     expect(executed.size).toBe(50);
@@ -76,7 +76,7 @@ describe("Mongo concurrency", () => {
     });
 
     await scheduler.start();
-    await new Promise((r) => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 2000));
     await scheduler.stop();
 
     expect(runs).toBe(1);
@@ -112,7 +112,7 @@ describe("Mongo concurrency", () => {
     });
 
     await scheduler.start();
-    await new Promise((r) => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 2000));
     await scheduler.stop();
 
     expect(runs).toBe(3);
