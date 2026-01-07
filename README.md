@@ -25,7 +25,7 @@ A production-grade MongoDB-backed job scheduler for Node.js with distributed loc
 
 ### Requirements
 
-- Node.js >= 16.0.0
+- Node.js >= 18.0.0
 - MongoDB 5.0, 6.0, 7.0+
 - The `mongodb` driver (v5, v6, or v7) must be installed as a peer dependency.
 
@@ -34,6 +34,14 @@ A production-grade MongoDB-backed job scheduler for Node.js with distributed loc
 ```bash
 npm install mongo-job-scheduler
 ```
+
+### UI Dashboard (Optional)
+
+For a visual web dashboard to manage and monitor your jobs, check out:
+
+- **NPM**: [`mongo-scheduler-ui`](https://www.npmjs.com/package/mongo-scheduler-ui)
+- **GitHub**: [mongo-scheduler-ui](https://github.com/darshanpatel14/mongo-job-scheduler-ui)
+- **API Server**: [mongo-job-scheduler-api](https://github.com/darshanpatel14/mongo-job-scheduler-api)
 
 ### Basic Usage
 
@@ -252,23 +260,15 @@ Run **multiple scheduler instances** (different servers, pods, or processes) con
 - **Concurrency Control** — only one worker executes a job instance
 - **Horizontally Scalable** — supports MongoDB sharding
 
-See `architecture.md` for sharding strategy and production guidelines.
+- **Horizontally Scalable** — supports MongoDB sharding
 
 ---
 
 ## Documentation
 
-- **`architecture.md`** — Internal design, MongoDB schema, sharding strategy, production checklist
 - **Job lifecycle** — pending → running → completed/failed
 - **Retry & repeat semantics** — at-most-once guarantees
 - **Correctness guarantees** — what we ensure and what we don't
-
----
-
-## Status
-
-**Early-stage but production-tested.**  
-API may evolve before 1.0.0.
 
 ---
 
