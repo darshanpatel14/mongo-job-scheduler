@@ -293,6 +293,7 @@ export class MongoJobStore implements JobStore {
     if (updates.nextRunAt !== undefined) $set.nextRunAt = updates.nextRunAt;
     if (updates.retry !== undefined) $set.retry = updates.retry;
     if (updates.repeat !== undefined) $set.repeat = updates.repeat;
+    if (updates.status !== undefined) $set.status = updates.status;
 
     await this.collection.updateOne({ _id: id }, { $set });
   }

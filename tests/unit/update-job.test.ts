@@ -38,6 +38,26 @@ describe("Job Updates", () => {
 
     const updated = await scheduler.getJob(job._id);
     expect(updated?.nextRunAt).toEqual(newRunAt);
+    expect(updated?.status).toBe("pending");
+  });
+
+  test("resets status to pending when rescheduling completed job", async () => {
+    const store = new InMemoryJobStore();
+    const scheduler = new Scheduler({ store });
+
+    const job = await scheduler.schedule({
+      name: "completed-job",
+    });
+
+    await store.markCompleted(job._id);
+
+    // Reschedule
+    const nextRunAt = new Date(Date.now() + 1000);
+    await scheduler.updateJob(job._id, { nextRunAt });
+
+    const updated = await scheduler.getJob(job._id);
+    expect(updated?.status).toBe("pending");
+    expect(updated?.nextRunAt).toEqual(nextRunAt);
   });
 
   test("updates repeat config dynamically", async () => {
@@ -53,6 +73,7 @@ describe("Job Updates", () => {
     // Update to run every hour instead
     await scheduler.updateJob(job._id, {
       repeat: { every: 3600000 },
+      nextRunAt: new Date(Date.now() + 3600000), // Required now
     });
 
     const updated = await scheduler.getJob(job._id);

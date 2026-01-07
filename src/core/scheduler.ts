@@ -73,6 +73,9 @@ export class Scheduler {
     // Normalize run time
     // ------------------------
     const nextRunAt = options.runAt ?? now;
+    if (isNaN(nextRunAt.getTime())) {
+      throw new Error("Invalid Date provided for runAt");
+    }
 
     const job: Job<T> = {
       name: options.name,
@@ -110,7 +113,7 @@ export class Scheduler {
         throw new Error("Cannot specify both cron and every");
       }
 
-      return {
+      const job: Job = {
         name: options.name,
         data: options.data,
         status: "pending",
@@ -119,6 +122,12 @@ export class Scheduler {
         retry: options.retry,
         dedupeKey: options.dedupeKey,
       } as Job;
+
+      if (isNaN(job.nextRunAt.getTime())) {
+        throw new Error("Invalid Date provided for runAt");
+      }
+
+      return job;
     });
 
     const createdJobs = await this.store.createBulk(jobs);
@@ -158,6 +167,21 @@ export class Scheduler {
     if (!this.store) {
       throw new Error("Scheduler has no JobStore configured");
     }
+
+    // Require runAt when changing repeat to ensure deterministic behavior
+    if (updates.repeat && !updates.nextRunAt) {
+      throw new Error("nextRunAt is required when updating repeat");
+    }
+
+    if (updates.nextRunAt && isNaN(updates.nextRunAt.getTime())) {
+      throw new Error("Invalid Date provided for nextRunAt");
+    }
+
+    // If rescheduling, automatically reset status to pending
+    if (updates.nextRunAt) {
+      updates.status = "pending";
+    }
+
     await this.store.update(jobId, updates);
   }
 

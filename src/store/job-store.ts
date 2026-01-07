@@ -1,4 +1,5 @@
 import { Job } from "../types/job";
+import { JobStatus } from "../types/lifecycle";
 
 export interface JobStore {
   /**
@@ -83,4 +84,5 @@ export interface JobUpdates {
   nextRunAt?: Date;
   retry?: RetryOptions;
   repeat?: RepeatOptions;
+  status?: JobStatus;
 }
