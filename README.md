@@ -23,6 +23,12 @@ A production-grade MongoDB-backed job scheduler for Node.js with distributed loc
 
 ## Quick Start
 
+### Requirements
+
+- Node.js >= 16.0.0
+- MongoDB 5.0, 6.0, 7.0+
+- The `mongodb` driver (v5, v6, or v7) must be installed as a peer dependency.
+
 ### Installation
 
 ```bash
