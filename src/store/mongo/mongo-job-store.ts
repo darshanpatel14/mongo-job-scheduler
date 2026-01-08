@@ -294,6 +294,7 @@ export class MongoJobStore implements JobStore {
     if (updates.retry !== undefined) $set.retry = updates.retry;
     if (updates.repeat !== undefined) $set.repeat = updates.repeat;
     if (updates.status !== undefined) $set.status = updates.status;
+    if (updates.attempts !== undefined) $set.attempts = updates.attempts;
 
     await this.collection.updateOne({ _id: id }, { $set });
   }

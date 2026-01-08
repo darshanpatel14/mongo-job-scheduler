@@ -85,4 +85,5 @@ export interface JobUpdates {
   retry?: RetryOptions;
   repeat?: RepeatOptions;
   status?: JobStatus;
+  attempts?: number;
 }

@@ -187,6 +187,9 @@ export class InMemoryJobStore implements JobStore {
     if (updates.status !== undefined) {
       job.status = updates.status;
     }
+    if (updates.attempts !== undefined) {
+      job.attempts = updates.attempts;
+    }
     job.updatedAt = new Date();
   }
 

@@ -190,6 +190,7 @@ export class Worker {
           lastError: error.message,
         });
       } else {
+        await this.store.update(job._id, { attempts });
         await this.store.markFailed(job._id, error.message);
         this.emitter.emitSafe("job:fail", { job, error });
       }

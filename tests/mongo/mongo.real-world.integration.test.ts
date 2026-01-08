@@ -15,6 +15,12 @@ describe("MongoDB Real-World Scenarios", () => {
     await teardownMongo();
   });
 
+  beforeEach(async () => {
+    if (db) {
+      await db.collection("jobs").deleteMany({});
+    }
+  });
+
   test("heavy load: 100 jobs, 10 workers, mixed types and durations", async () => {
     const store = new MongoJobStore(db);
     const completed = new Set<string>();
@@ -76,7 +82,7 @@ describe("MongoDB Real-World Scenarios", () => {
     expect(jobTypes.get("slow")).toBe(15);
   }, 15000); // 15 second timeout
 
-  test.skip("multi-tenant isolation: 50 tenants, verify no cross-execution", async () => {
+  test("multi-tenant isolation: 50 tenants, verify no cross-execution", async () => {
     const store = new MongoJobStore(db);
     const tenantExecutions = new Map<string, Set<string>>();
 
@@ -127,9 +133,9 @@ describe("MongoDB Real-World Scenarios", () => {
       const tenantJobs = tenantExecutions.get(`tenant-${i}`);
       expect(tenantJobs?.size).toBe(3);
     }
-  });
+  }, 20000);
 
-  test.skip("retry with MongoDB: verify attempts persist across runs", async () => {
+  test("retry with MongoDB: verify attempts persist across runs", async () => {
     const store = new MongoJobStore(db);
     let totalRuns = 0;
 

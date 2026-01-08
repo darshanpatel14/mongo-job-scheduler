@@ -1,6 +1,6 @@
 {
   "name": "mongo-job-scheduler",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "Production-grade MongoDB-backed job scheduler with retries, cron, timezone support, and crash recovery",
   "license": "MIT",
   "author": "Darshan Bhut",
@@ -40,7 +40,7 @@
     "scheduler"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "test": "jest",
     "test:mongo": "jest tests/mongo",
     "test:stress": "jest tests/stress",
