@@ -70,6 +70,10 @@ export class MongoJobStore implements JobStore {
       updatedAt: now,
     };
 
+    if (doc.dedupeKey === undefined || doc.dedupeKey === null) {
+      delete doc.dedupeKey;
+    }
+
     if (job.dedupeKey) {
       // Idempotent insert
       const result = await this.collection.findOneAndUpdate(
@@ -89,13 +93,17 @@ export class MongoJobStore implements JobStore {
     const docs: MongoJob[] = jobs.map((job) => {
       // IMPORTANT: strip _id completely
       const { _id, ...jobWithoutId } = job;
-      return {
+      const doc: MongoJob = {
         ...jobWithoutId,
         status: job.status ?? "pending",
         attempts: job.attempts ?? 0,
         createdAt: now,
         updatedAt: now,
       };
+      if (doc.dedupeKey === undefined || doc.dedupeKey === null) {
+        delete doc.dedupeKey;
+      }
+      return doc;
     });
 
     if (docs.length === 0) return [];
@@ -193,7 +201,7 @@ export class MongoJobStore implements JobStore {
     nextRunAt: Date,
     updates?: { attempts?: number; lastError?: string }
   ): Promise<void> {
-    await this.collection.updateOne(
+    const result = await this.collection.updateOne(
       { _id: id },
       {
         $set: {
