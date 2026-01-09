@@ -26,6 +26,7 @@ export class InMemoryJobStore implements JobStore {
     const stored: Job = {
       ...job,
       _id: id,
+      priority: job.priority ?? 5,
       createdAt: job.createdAt ?? new Date(),
       updatedAt: job.updatedAt ?? new Date(),
     };
@@ -49,7 +50,15 @@ export class InMemoryJobStore implements JobStore {
   }): Promise<Job | null> {
     const release = await this.mutex.acquire();
     try {
-      for (const job of this.jobs.values()) {
+      // Sort jobs by priority (ascending), then nextRunAt (ascending)
+      const sortedJobs = Array.from(this.jobs.values()).sort((a, b) => {
+        const priorityA = a.priority ?? 5;
+        const priorityB = b.priority ?? 5;
+        if (priorityA !== priorityB) return priorityA - priorityB;
+        return a.nextRunAt.getTime() - b.nextRunAt.getTime();
+      });
+
+      for (const job of sortedJobs) {
         if (job.status !== "pending") continue;
         if (job.nextRunAt > now) continue;
 
@@ -189,6 +198,9 @@ export class InMemoryJobStore implements JobStore {
     }
     if (updates.attempts !== undefined) {
       job.attempts = updates.attempts;
+    }
+    if (updates.priority !== undefined) {
+      job.priority = updates.priority;
     }
     job.updatedAt = new Date();
   }

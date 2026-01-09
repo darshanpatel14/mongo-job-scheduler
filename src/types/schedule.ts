@@ -25,4 +25,10 @@ export interface ScheduleOptions<T = unknown> {
    * Idempotency key to prevent duplicate jobs
    */
   dedupeKey?: string;
+
+  /**
+   * Job priority (1-10). Lower values = higher priority.
+   * Default: 5
+   */
+  priority?: number;
 }

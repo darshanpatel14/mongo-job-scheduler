@@ -69,6 +69,17 @@ export class Scheduler {
       throw new Error("Use either cron or every, not both");
     }
 
+    // Priority validation
+    if (options.priority !== undefined) {
+      if (
+        !Number.isInteger(options.priority) ||
+        options.priority < 1 ||
+        options.priority > 10
+      ) {
+        throw new Error("Priority must be an integer between 1 and 10");
+      }
+    }
+
     // ------------------------
     // Normalize run time
     // ------------------------
@@ -86,6 +97,7 @@ export class Scheduler {
       retry: options.retry,
       repeat: options.repeat,
       dedupeKey: options.dedupeKey,
+      priority: options.priority,
       createdAt: now,
       updatedAt: now,
     };
@@ -113,6 +125,17 @@ export class Scheduler {
         throw new Error("Cannot specify both cron and every");
       }
 
+      // Priority validation
+      if (options.priority !== undefined) {
+        if (
+          !Number.isInteger(options.priority) ||
+          options.priority < 1 ||
+          options.priority > 10
+        ) {
+          throw new Error("Priority must be an integer between 1 and 10");
+        }
+      }
+
       const job: Job = {
         name: options.name,
         data: options.data,
@@ -121,6 +144,7 @@ export class Scheduler {
         repeat: options.repeat,
         retry: options.retry,
         dedupeKey: options.dedupeKey,
+        priority: options.priority,
       } as Job;
 
       if (isNaN(job.nextRunAt.getTime())) {

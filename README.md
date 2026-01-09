@@ -10,6 +10,7 @@ A production-grade MongoDB-backed job scheduler for Node.js with distributed loc
 
 - ✅ **Distributed locking** — safe for multiple instances
 - ✅ **Atomic job execution** — no double processing
+- ✅ **Job priority** — process important jobs first
 - ✅ **Automatic retries** — with configurable backoff
 - ✅ **Cron scheduling** — timezone-aware, non-drifting
 - ✅ **Interval jobs** — repeated execution
@@ -178,6 +179,34 @@ await scheduler.cancel(jobId);
 
 ## Advanced Features
 
+### Job Priority
+
+Process important jobs first using priority levels (1-10, where 1 is highest priority):
+
+```typescript
+// High priority job - runs first
+await scheduler.schedule({
+  name: "urgent-alert",
+  priority: 1,
+});
+
+// Normal priority (default is 5)
+await scheduler.schedule({
+  name: "regular-task",
+});
+
+// Low priority job - runs last
+await scheduler.schedule({
+  name: "background-cleanup",
+  priority: 10,
+});
+
+// Update priority of existing job
+await scheduler.updateJob(jobId, { priority: 2 });
+```
+
+> **Priority Scale**: 1 (highest) → 10 (lowest). Jobs with equal priority run in FIFO order by `nextRunAt`.
+
 ### Retries with Backoff
 
 ```typescript
@@ -246,7 +275,7 @@ await scheduler.stop({
 
 The library creates three indexes in background mode:
 
-- `{ status: 1, nextRunAt: 1 }` — for job polling (critical)
+- `{ status: 1, priority: 1, nextRunAt: 1 }` — for priority-based job polling (critical)
 - `{ dedupeKey: 1 }` — for deduplication (unique)
 - `{ lockedAt: 1 }` — for stale lock recovery
 
@@ -258,8 +287,6 @@ Run **multiple scheduler instances** (different servers, pods, or processes) con
 
 - **Atomic Locking** — uses `findOneAndUpdate` to prevent race conditions
 - **Concurrency Control** — only one worker executes a job instance
-- **Horizontally Scalable** — supports MongoDB sharding
-
 - **Horizontally Scalable** — supports MongoDB sharding
 
 ---

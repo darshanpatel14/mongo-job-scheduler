@@ -1,6 +1,6 @@
 {
   "name": "mongo-job-scheduler",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "description": "Production-grade MongoDB-backed job scheduler with retries, cron, timezone support, and crash recovery",
   "license": "MIT",
   "author": "Darshan Bhut",

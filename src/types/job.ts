@@ -25,6 +25,12 @@ export interface Job<Data = unknown> {
 
   dedupeKey?: string;
 
+  /**
+   * Job priority (1-10). Lower values = higher priority.
+   * Default: 5
+   */
+  priority?: number;
+
   createdAt: Date;
   updatedAt: Date;
 }

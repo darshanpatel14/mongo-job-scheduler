@@ -33,9 +33,9 @@ export class MongoJobStore implements JobStore {
    */
   private async ensureIndexes(): Promise<void> {
     await Promise.all([
-      // Primary index for job polling (findAndLockNext)
+      // Primary index for job polling (findAndLockNext) with priority
       this.collection.createIndex(
-        { status: 1, nextRunAt: 1 },
+        { status: 1, priority: 1, nextRunAt: 1 },
         { background: true }
       ),
 
@@ -66,6 +66,7 @@ export class MongoJobStore implements JobStore {
       ...jobWithoutId,
       status: job.status ?? "pending",
       attempts: job.attempts ?? 0,
+      priority: job.priority ?? 5,
       createdAt: now,
       updatedAt: now,
     };
@@ -97,6 +98,7 @@ export class MongoJobStore implements JobStore {
         ...jobWithoutId,
         status: job.status ?? "pending",
         attempts: job.attempts ?? 0,
+        priority: job.priority ?? 5,
         createdAt: now,
         updatedAt: now,
       };
@@ -146,7 +148,7 @@ export class MongoJobStore implements JobStore {
         },
       },
       {
-        sort: { nextRunAt: 1 },
+        sort: { priority: 1, nextRunAt: 1 },
         returnDocument: "after",
       }
     );
@@ -303,6 +305,7 @@ export class MongoJobStore implements JobStore {
     if (updates.repeat !== undefined) $set.repeat = updates.repeat;
     if (updates.status !== undefined) $set.status = updates.status;
     if (updates.attempts !== undefined) $set.attempts = updates.attempts;
+    if (updates.priority !== undefined) $set.priority = updates.priority;
 
     await this.collection.updateOne({ _id: id }, { $set });
   }
