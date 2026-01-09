@@ -31,6 +31,12 @@ export interface Job<Data = unknown> {
    */
   priority?: number;
 
+  /**
+   * Max concurrent running jobs with this name.
+   * undefined = no limit.
+   */
+  concurrency?: number;
+
   createdAt: Date;
   updatedAt: Date;
 }

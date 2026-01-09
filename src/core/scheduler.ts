@@ -80,6 +80,13 @@ export class Scheduler {
       }
     }
 
+    // Concurrency validation
+    if (options.concurrency !== undefined) {
+      if (!Number.isInteger(options.concurrency) || options.concurrency < 1) {
+        throw new Error("Concurrency must be a positive integer");
+      }
+    }
+
     // ------------------------
     // Normalize run time
     // ------------------------
@@ -98,6 +105,7 @@ export class Scheduler {
       repeat: options.repeat,
       dedupeKey: options.dedupeKey,
       priority: options.priority,
+      concurrency: options.concurrency,
       createdAt: now,
       updatedAt: now,
     };
@@ -136,6 +144,13 @@ export class Scheduler {
         }
       }
 
+      // Concurrency validation
+      if (options.concurrency !== undefined) {
+        if (!Number.isInteger(options.concurrency) || options.concurrency < 1) {
+          throw new Error("Concurrency must be a positive integer");
+        }
+      }
+
       const job: Job = {
         name: options.name,
         data: options.data,
@@ -145,6 +160,7 @@ export class Scheduler {
         retry: options.retry,
         dedupeKey: options.dedupeKey,
         priority: options.priority,
+        concurrency: options.concurrency,
       } as Job;
 
       if (isNaN(job.nextRunAt.getTime())) {

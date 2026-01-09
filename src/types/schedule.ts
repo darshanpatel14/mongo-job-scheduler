@@ -31,4 +31,10 @@ export interface ScheduleOptions<T = unknown> {
    * Default: 5
    */
   priority?: number;
+
+  /**
+   * Max concurrent running jobs with this name.
+   * Useful for rate-limiting external API calls.
+   */
+  concurrency?: number;
 }

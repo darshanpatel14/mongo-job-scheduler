@@ -73,6 +73,11 @@ export interface JobStore {
    * Find all jobs matching query
    */
   findAll(query: JobQuery): Promise<Job[]>;
+
+  /**
+   * Count running jobs by name (for concurrency limits)
+   */
+  countRunning(jobName: string): Promise<number>;
 }
 
 import { RetryOptions } from "../types/retry";
@@ -87,4 +92,5 @@ export interface JobUpdates {
   status?: JobStatus;
   attempts?: number;
   priority?: number;
+  concurrency?: number;
 }

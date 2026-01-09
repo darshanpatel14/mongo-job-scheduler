@@ -70,6 +70,18 @@ export class InMemoryJobStore implements JobStore {
           continue;
         }
 
+        // Check concurrency limit if defined
+        if (job.concurrency !== undefined && job.concurrency > 0) {
+          const runningCount = Array.from(this.jobs.values()).filter(
+            (j) => j.name === job.name && j.status === "running"
+          ).length;
+
+          if (runningCount >= job.concurrency) {
+            // At concurrency limit, skip this job
+            continue;
+          }
+        }
+
         job.status = "running";
         job.lockedAt = now;
         job.lockedBy = workerId;
@@ -202,7 +214,16 @@ export class InMemoryJobStore implements JobStore {
     if (updates.priority !== undefined) {
       job.priority = updates.priority;
     }
+    if (updates.concurrency !== undefined) {
+      job.concurrency = updates.concurrency;
+    }
     job.updatedAt = new Date();
+  }
+
+  async countRunning(jobName: string): Promise<number> {
+    return Array.from(this.jobs.values()).filter(
+      (j) => j.name === jobName && j.status === "running"
+    ).length;
   }
 
   async findAll(query: JobQuery): Promise<Job[]> {

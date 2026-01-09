@@ -11,6 +11,7 @@ A production-grade MongoDB-backed job scheduler for Node.js with distributed loc
 - ✅ **Distributed locking** — safe for multiple instances
 - ✅ **Atomic job execution** — no double processing
 - ✅ **Job priority** — process important jobs first
+- ✅ **Concurrency limits** — rate-limit job execution
 - ✅ **Automatic retries** — with configurable backoff
 - ✅ **Cron scheduling** — timezone-aware, non-drifting
 - ✅ **Interval jobs** — repeated execution
@@ -206,6 +207,27 @@ await scheduler.updateJob(jobId, { priority: 2 });
 ```
 
 > **Priority Scale**: 1 (highest) → 10 (lowest). Jobs with equal priority run in FIFO order by `nextRunAt`.
+
+### Concurrency Limits
+
+Limit how many instances of a job type can run simultaneously (useful for rate-limiting API calls):
+
+```typescript
+// Max 5 concurrent "api-sync" jobs globally
+await scheduler.schedule({
+  name: "api-sync",
+  concurrency: 5,
+});
+
+// Max 2 concurrent "webhook" jobs
+await scheduler.schedule({
+  name: "webhook",
+  data: { url: "https://..." },
+  concurrency: 2,
+});
+```
+
+> **Note**: Concurrency is enforced globally across all workers. Jobs exceeding the limit wait until a slot frees up.
 
 ### Retries with Backoff
 
