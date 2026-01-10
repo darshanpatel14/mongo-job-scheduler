@@ -28,41 +28,26 @@ export class MongoJobStore implements JobStore {
     });
   }
 
-  /**
-   * Create necessary indexes for optimal query performance
-   */
   private async ensureIndexes(): Promise<void> {
     await Promise.all([
-      // Primary index for job polling (findAndLockNext) with priority
       this.collection.createIndex(
         { status: 1, priority: 1, nextRunAt: 1 },
         { background: true }
       ),
-
-      // Index for deduplication
       this.collection.createIndex(
         { dedupeKey: 1 },
         { unique: true, sparse: true, background: true }
       ),
-
-      // Index for stale lock recovery
       this.collection.createIndex(
-        { lockedAt: 1 },
+        { lockUntil: 1 },
         { sparse: true, background: true }
       ),
-
-      // Index for concurrency counting
       this.collection.createIndex({ name: 1, status: 1 }, { background: true }),
     ]);
   }
 
-  // --------------------------------------------------
-  // CREATE
-  // --------------------------------------------------
   async create(job: Job): Promise<Job> {
     const now = new Date();
-
-    // IMPORTANT: strip _id completely
     const { _id, ...jobWithoutId } = job;
 
     const doc: MongoJob = {
@@ -70,6 +55,7 @@ export class MongoJobStore implements JobStore {
       status: job.status ?? "pending",
       attempts: job.attempts ?? 0,
       priority: job.priority ?? 5,
+      lockVersion: job.lockVersion ?? 0,
       createdAt: now,
       updatedAt: now,
     };
@@ -79,7 +65,6 @@ export class MongoJobStore implements JobStore {
     }
 
     if (job.dedupeKey) {
-      // Idempotent insert
       const result = await this.collection.findOneAndUpdate(
         { dedupeKey: job.dedupeKey },
         { $setOnInsert: doc },
@@ -95,13 +80,13 @@ export class MongoJobStore implements JobStore {
   async createBulk(jobs: Job[]): Promise<Job[]> {
     const now = new Date();
     const docs: MongoJob[] = jobs.map((job) => {
-      // IMPORTANT: strip _id completely
       const { _id, ...jobWithoutId } = job;
       const doc: MongoJob = {
         ...jobWithoutId,
         status: job.status ?? "pending",
         attempts: job.attempts ?? 0,
         priority: job.priority ?? 5,
+        lockVersion: job.lockVersion ?? 0,
         createdAt: now,
         updatedAt: now,
       };
@@ -121,90 +106,182 @@ export class MongoJobStore implements JobStore {
     }));
   }
 
-  // --------------------------------------------------
-  // ATOMIC FIND & LOCK (with concurrency support)
-  // --------------------------------------------------
+  // Atomic find & lock with version-based optimistic locking
   async findAndLockNext(options: {
     now: Date;
     workerId: string;
     lockTimeoutMs: number;
   }): Promise<Job | null> {
     const { now, workerId, lockTimeoutMs } = options;
-    const lockExpiry = new Date(now.getTime() - lockTimeoutMs);
+    const lockUntil = new Date(now.getTime() + lockTimeoutMs);
 
-    // Base query for runnable jobs
-    const baseQuery = {
-      status: "pending" as const,
-      nextRunAt: { $lte: now },
+    // Fast path: jobs without concurrency limits
+    const simpleQuery = {
       $or: [
-        { lockedAt: { $exists: false } },
-        { lockedAt: { $lte: lockExpiry } },
+        // Pending jobs (not locked)
+        {
+          status: "pending" as const,
+          nextRunAt: { $lte: now },
+          $or: [{ lockedBy: { $exists: false } }, { lockedBy: null }],
+        },
+        // Stale running jobs (lock expired - crash recovery)
+        {
+          status: "running" as const,
+          nextRunAt: { $lte: now },
+          lockUntil: { $lte: now },
+        },
+      ],
+      $and: [
+        { $or: [{ concurrency: { $exists: false } }, { concurrency: null }] },
       ],
     };
 
-    // Try to find and lock a job, respecting concurrency limits
-    // We use a loop to handle cases where a job has a concurrency limit
-    const maxAttempts = 10; // Prevent infinite loops
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      // Find candidate without locking first
-      const candidate = await this.collection.findOne(baseQuery as any, {
+    const simpleResult = await this.collection.findOneAndUpdate(
+      simpleQuery as any,
+      {
+        $set: {
+          lockedAt: now,
+          lockedBy: workerId,
+          lockUntil: lockUntil,
+          status: "running",
+          lastRunAt: now,
+          updatedAt: now,
+        },
+        $inc: { lockVersion: 1 },
+      },
+      {
         sort: { priority: 1, nextRunAt: 1 },
-        skip: attempt, // Skip previously checked candidates
+        returnDocument: "after",
+      }
+    );
+
+    if (simpleResult) {
+      return simpleResult as unknown as Job;
+    }
+
+    // Now handle jobs with concurrency limits
+    // We need to check concurrency before locking
+    const maxAttempts = 20;
+    const checkedNames = new Set<string>();
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      // Find a candidate with concurrency limit that we haven't checked yet
+      const concurrencyQuery: any = {
+        $or: [
+          {
+            status: "pending" as const,
+            nextRunAt: { $lte: now },
+            // Pending jobs should not have lockedBy set
+            $or: [{ lockedBy: { $exists: false } }, { lockedBy: null }],
+          },
+          {
+            // Stale running jobs (lock expired)
+            status: "running" as const,
+            nextRunAt: { $lte: now },
+            lockUntil: { $lte: now },
+          },
+        ],
+        concurrency: { $exists: true, $gt: 0 },
+      };
+
+      if (checkedNames.size > 0) {
+        concurrencyQuery.name = { $nin: Array.from(checkedNames) };
+      }
+
+      const candidate = await this.collection.findOne(concurrencyQuery, {
+        sort: { priority: 1, nextRunAt: 1 },
+        projection: { name: 1, concurrency: 1, lockVersion: 1 },
       });
 
       if (!candidate) {
-        return null; // No more candidates
+        return null; // No more candidates with concurrency limits
       }
 
-      // Check concurrency limit if defined
-      if (candidate.concurrency !== undefined && candidate.concurrency > 0) {
-        const runningCount = await this.collection.countDocuments({
-          name: candidate.name,
-          status: "running",
-        });
+      const runningCount = await this.collection.countDocuments({
+        name: candidate.name,
+        status: "running",
+      });
 
-        if (runningCount >= candidate.concurrency) {
-          // At concurrency limit, skip this job and try next
-          continue;
-        }
+      if (runningCount >= (candidate.concurrency as number)) {
+        // At limit for this job name, skip all jobs with this name
+        checkedNames.add(candidate.name as string);
+        continue;
       }
 
-      // Attempt atomic lock on this specific job
-      const result = await this.collection.findOneAndUpdate(
+      const lockResult = await this.collection.findOneAndUpdate(
         {
-          _id: candidate._id,
-          status: "pending", // Re-verify status
+          name: candidate.name,
+          concurrency: candidate.concurrency,
           $or: [
-            { lockedAt: { $exists: false } },
-            { lockedAt: { $lte: lockExpiry } },
+            {
+              status: "pending",
+              $or: [{ lockedBy: { $exists: false } }, { lockedBy: null }],
+            },
+            {
+              status: "running",
+              lockUntil: { $lte: now },
+            },
           ],
-        },
+          nextRunAt: { $lte: now },
+        } as any,
         {
           $set: {
             lockedAt: now,
             lockedBy: workerId,
+            lockUntil: lockUntil,
             status: "running",
             lastRunAt: now,
             updatedAt: now,
           },
+          $inc: { lockVersion: 1 },
         },
         {
+          sort: { priority: 1, nextRunAt: 1 },
           returnDocument: "after",
         }
       );
 
-      if (result) {
-        return result as unknown as Job;
+      if (lockResult) {
+        // Verify concurrency wasn't exceeded by race condition
+        const currentRunning = await this.collection.countDocuments({
+          name: lockResult.name,
+          status: "running",
+        });
+
+        if (currentRunning > (lockResult.concurrency as number)) {
+          // We exceeded concurrency - release this job back to pending
+          await this.collection.updateOne(
+            {
+              _id: lockResult._id,
+              lockedBy: workerId,
+              lockVersion: lockResult.lockVersion,
+            },
+            {
+              $set: {
+                status: "pending",
+                updatedAt: new Date(),
+              },
+              $unset: {
+                lockedAt: "",
+                lockedBy: "",
+                lockUntil: "",
+                lastRunAt: "",
+              },
+            }
+          );
+          continue;
+        }
+
+        return lockResult as unknown as Job;
       }
-      // Job was taken by another worker, try next
+
+      // Lock failed (another worker got it), try next job name
+      checkedNames.add(candidate.name as string);
     }
 
     return null;
   }
 
-  // --------------------------------------------------
-  // MARK COMPLETED
-  // --------------------------------------------------
   async markCompleted(id: ObjectId): Promise<void> {
     await this.collection.updateOne(
       { _id: id },
@@ -216,14 +293,12 @@ export class MongoJobStore implements JobStore {
         $unset: {
           lockedAt: "",
           lockedBy: "",
+          lockUntil: "",
         },
       }
     );
   }
 
-  // --------------------------------------------------
-  // MARK FAILED
-  // --------------------------------------------------
   async markFailed(id: ObjectId, error: string): Promise<void> {
     await this.collection.updateOne(
       { _id: id },
@@ -236,14 +311,12 @@ export class MongoJobStore implements JobStore {
         $unset: {
           lockedAt: "",
           lockedBy: "",
+          lockUntil: "",
         },
       }
     );
   }
 
-  // --------------------------------------------------
-  // RESCHEDULE
-  // --------------------------------------------------
   async reschedule(
     id: ObjectId,
     nextRunAt: Date,
@@ -261,14 +334,12 @@ export class MongoJobStore implements JobStore {
         $unset: {
           lockedAt: "",
           lockedBy: "",
+          lockUntil: "",
         },
       }
     );
   }
 
-  // --------------------------------------------------
-  // CANCEL
-  // --------------------------------------------------
   async cancel(id: ObjectId): Promise<void> {
     await this.collection.updateOne(
       { _id: id },
@@ -280,6 +351,7 @@ export class MongoJobStore implements JobStore {
         $unset: {
           lockedAt: "",
           lockedBy: "",
+          lockUntil: "",
         },
       }
     );
@@ -291,9 +363,6 @@ export class MongoJobStore implements JobStore {
     return doc as unknown as Job;
   }
 
-  // --------------------------------------------------
-  // RECOVER STALE JOBS
-  // --------------------------------------------------
   async recoverStaleJobs(options: {
     now: Date;
     lockTimeoutMs: number;
@@ -303,7 +372,10 @@ export class MongoJobStore implements JobStore {
 
     const result = await this.collection.updateMany(
       {
-        lockedAt: { $lte: expiry },
+        $or: [
+          { lockUntil: { $lte: now } },
+          { lockUntil: { $exists: false }, lockedAt: { $lte: expiry } },
+        ],
       },
       {
         $set: {
@@ -313,6 +385,7 @@ export class MongoJobStore implements JobStore {
         $unset: {
           lockedAt: "",
           lockedBy: "",
+          lockUntil: "",
         },
       }
     );
@@ -332,7 +405,9 @@ export class MongoJobStore implements JobStore {
         $set: {
           lockedAt: now,
           updatedAt: now,
+          lockUntil: new Date(now.getTime() + this.defaultLockTimeoutMs),
         },
+        $inc: { lockVersion: 1 },
       }
     );
 
@@ -358,9 +433,6 @@ export class MongoJobStore implements JobStore {
     await this.collection.updateOne({ _id: id }, { $set });
   }
 
-  // --------------------------------------------------
-  // COUNT RUNNING (for concurrency limits)
-  // --------------------------------------------------
   async countRunning(jobName: string): Promise<number> {
     return this.collection.countDocuments({
       name: jobName,

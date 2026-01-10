@@ -16,6 +16,15 @@ export interface Job<Data = unknown> {
 
   lockedAt?: Date;
   lockedBy?: string;
+  /**
+   * Lock expiry time. Job can be taken by another worker after this time.
+   */
+  lockUntil?: Date;
+  /**
+   * Optimistic locking version. Incremented on each lock acquisition.
+   * Prevents race conditions in distributed environments.
+   */
+  lockVersion?: number;
 
   attempts: number;
   lastError?: string;

@@ -106,6 +106,7 @@ export class Scheduler {
       dedupeKey: options.dedupeKey,
       priority: options.priority,
       concurrency: options.concurrency,
+      lockVersion: 0,
       createdAt: now,
       updatedAt: now,
     };
@@ -161,6 +162,7 @@ export class Scheduler {
         dedupeKey: options.dedupeKey,
         priority: options.priority,
         concurrency: options.concurrency,
+        lockVersion: 0,
       } as Job;
 
       if (isNaN(job.nextRunAt.getTime())) {

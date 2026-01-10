@@ -27,6 +27,7 @@ export class InMemoryJobStore implements JobStore {
       ...job,
       _id: id,
       priority: job.priority ?? 5,
+      lockVersion: job.lockVersion ?? 0,
       createdAt: job.createdAt ?? new Date(),
       updatedAt: job.updatedAt ?? new Date(),
     };
@@ -85,6 +86,8 @@ export class InMemoryJobStore implements JobStore {
         job.status = "running";
         job.lockedAt = now;
         job.lockedBy = workerId;
+        job.lockUntil = new Date(now.getTime() + lockTimeoutMs);
+        job.lockVersion = (job.lockVersion ?? 0) + 1;
         job.updatedAt = new Date();
         job.lastRunAt = now;
 
@@ -154,6 +157,7 @@ export class InMemoryJobStore implements JobStore {
         job.status = "pending";
         job.lockedAt = undefined;
         job.lockedBy = undefined;
+        job.lockUntil = undefined;
         job.updatedAt = new Date();
         recovered++;
       }

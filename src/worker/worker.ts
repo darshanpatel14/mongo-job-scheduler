@@ -67,7 +67,6 @@ export class Worker {
 
   private async loop(): Promise<void> {
     while (this.running) {
-      // stop requested before poll
       if (!this.running) break;
 
       const job = await this.store.findAndLockNext({
@@ -76,7 +75,6 @@ export class Worker {
         lockTimeoutMs: this.lockTimeout,
       });
 
-      // stop requested after polling
       if (!this.running) break;
 
       if (!job) {
@@ -93,28 +91,7 @@ export class Worker {
 
     const now = Date.now();
 
-    // ---------------------------
-    // CRON: pre-schedule BEFORE execution
-    // ---------------------------
-    if (job.repeat?.cron) {
-      let base = job.lastScheduledAt ?? job.nextRunAt ?? new Date(now);
-
-      let next = getNextRunAt(job.repeat, base, this.defaultTimezone);
-
-      // skip missed cron slots
-      while (next.getTime() <= now) {
-        base = next;
-        next = getNextRunAt(job.repeat, base, this.defaultTimezone);
-      }
-
-      // persist schedule immediately
-      job.lastScheduledAt = next;
-      await this.store.reschedule(job._id, next);
-    }
-
-    // ---------------------------
-    // HEARTBEAT
-    // ---------------------------
+    // Heartbeat to prevent lock expiry during long jobs
     const heartbeatIntervalMs = Math.max(50, this.lockTimeout / 2);
     const heartbeatParams = {
       jobId: job._id,
@@ -147,18 +124,62 @@ export class Worker {
     const heartbeatPromise = heartbeatLoop();
 
     try {
+      // Verify we still own the lock before any modifications
+      // (another worker might have stolen it via stale recovery)
       const current = await this.store.findById(job._id);
-      if (current && current.status === "cancelled") {
-        this.emitter.emitSafe("job:complete", job);
-        stopHeartbeat = true; // stop fast
+
+      if (!current) {
+        stopHeartbeat = true;
         return;
+      }
+
+      if (current.status === "cancelled") {
+        this.emitter.emitSafe("job:complete", job);
+        stopHeartbeat = true;
+        return;
+      }
+
+      if (current.lockedBy !== this.workerId) {
+        this.emitter.emitSafe(
+          "worker:error",
+          new Error(
+            `Lock stolen for job ${job._id}: owned by ${current.lockedBy}, we are ${this.workerId}`
+          )
+        );
+        stopHeartbeat = true;
+        return;
+      }
+
+      if (current.status !== "running") {
+        this.emitter.emitSafe(
+          "worker:error",
+          new Error(
+            `Job ${job._id} is no longer running (status: ${current.status})`
+          )
+        );
+        stopHeartbeat = true;
+        return;
+      }
+
+      // CRON: pre-schedule before execution (after lock verification)
+      if (job.repeat?.cron) {
+        let base = job.lastScheduledAt ?? job.nextRunAt ?? new Date(now);
+
+        let next = getNextRunAt(job.repeat, base, this.defaultTimezone);
+
+        // skip missed cron slots
+        while (next.getTime() <= now) {
+          base = next;
+          next = getNextRunAt(job.repeat, base, this.defaultTimezone);
+        }
+
+        job.lastScheduledAt = next;
+        await this.store.reschedule(job._id, next);
       }
 
       await this.handler(job);
 
-      // ---------------------------
-      // INTERVAL: schedule AFTER execution
-      // ---------------------------
+      // INTERVAL: schedule after execution
       if (job.repeat?.every != null) {
         const next = new Date(Date.now() + Math.max(job.repeat.every, 100));
         await this.store.reschedule(job._id, next);
