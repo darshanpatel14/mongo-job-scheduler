@@ -23,6 +23,10 @@ A production-grade MongoDB-backed job scheduler for Node.js with distributed loc
 
 ---
 
+> 🚀 **Ready to start?** Check out the [Complete Example Repository](https://github.com/darshanpatel14/mongo-job-scheduler-example) which demonstrates all features (Priority, Retries, Cron, UI) in a production-ready Express app with Docker.
+
+---
+
 ## Quick Start
 
 ### Requirements
@@ -43,6 +47,7 @@ For a visual web dashboard to manage and monitor your jobs, check out:
 
 - **NPM**: [`mongo-scheduler-ui`](https://www.npmjs.com/package/mongo-scheduler-ui)
 - **GitHub**: [mongo-scheduler-ui](https://github.com/darshanpatel14/mongo-job-scheduler-ui)
+- **Full Example**: [mongo-job-scheduler-example](https://github.com/darshanpatel14/mongo-job-scheduler-example) (Backend + UI + Docker)
 - **API Server**: [mongo-job-scheduler-api](https://github.com/darshanpatel14/mongo-job-scheduler-api)
 
 ### Basic Usage
