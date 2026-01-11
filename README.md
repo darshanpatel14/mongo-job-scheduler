@@ -326,6 +326,122 @@ Run **multiple scheduler instances** (different servers, pods, or processes) con
 
 ---
 
+## Job Schema Reference
+
+Use this schema for backend validation (Mongoose, Zod, Joi, etc.):
+
+### TypeScript Interface
+
+```typescript
+interface Job<T = unknown> {
+  _id: ObjectId;
+  name: string; // Job type identifier (required)
+  data?: T; // Your job payload
+  status: "pending" | "running" | "completed" | "failed" | "cancelled";
+
+  // Scheduling
+  nextRunAt: Date; // When to run next (required)
+  lastRunAt?: Date; // Last execution start
+  lastScheduledAt?: Date; // For cron: prevents drift
+
+  // Locking (internal)
+  lockedAt?: Date; // When lock was acquired
+  lockedBy?: string; // Worker ID holding lock
+  lockUntil?: Date; // Lock expiry time
+  lockVersion: number; // Optimistic locking version
+
+  // Repeat configuration
+  repeat?: {
+    cron?: string; // Cron expression (e.g., "0 9 * * *")
+    every?: number; // Interval in milliseconds
+    timezone?: string; // IANA timezone (e.g., "America/New_York")
+  };
+
+  // Retry configuration
+  retry?: {
+    maxAttempts: number;
+    delay: number; // Base delay in ms
+    backoff?: "fixed" | "linear" | "exponential";
+  };
+  attempts: number; // Current attempt count
+  lastError?: string; // Last error message
+
+  // Other
+  priority: number; // 1-10, lower = higher priority (default: 5)
+  concurrency?: number; // Max concurrent jobs with same name
+  dedupeKey?: string; // Unique key for deduplication
+
+  // Timestamps
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+### Mongoose Schema Example
+
+```javascript
+const jobSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, index: true },
+    data: { type: mongoose.Schema.Types.Mixed },
+    status: {
+      type: String,
+      enum: ["pending", "running", "completed", "failed", "cancelled"],
+      default: "pending",
+      index: true,
+    },
+
+    nextRunAt: { type: Date, required: true, index: true },
+    lastRunAt: { type: Date },
+    lastScheduledAt: { type: Date },
+
+    lockedAt: { type: Date },
+    lockedBy: { type: String },
+    lockUntil: { type: Date, index: true },
+    lockVersion: { type: Number, default: 0 },
+
+    repeat: {
+      cron: { type: String },
+      every: { type: Number },
+      timezone: { type: String },
+    },
+
+    retry: {
+      maxAttempts: { type: Number },
+      delay: { type: Number },
+      backoff: { type: String, enum: ["fixed", "linear", "exponential"] },
+    },
+    attempts: { type: Number, default: 0 },
+    lastError: { type: String },
+
+    priority: { type: Number, default: 5, min: 1, max: 10 },
+    concurrency: { type: Number, min: 1 },
+    dedupeKey: { type: String, unique: true, sparse: true },
+  },
+  { timestamps: true }
+);
+
+// Recommended indexes (auto-created by MongoJobStore)
+jobSchema.index({ status: 1, priority: 1, nextRunAt: 1 });
+jobSchema.index({ name: 1, status: 1 });
+```
+
+### Field Reference
+
+| Field         | Required | Description                             |
+| ------------- | -------- | --------------------------------------- |
+| `name`        | ✅       | Job type identifier used in handler     |
+| `data`        | ❌       | Custom payload for your job             |
+| `status`      | Auto     | Set by scheduler, don't modify directly |
+| `nextRunAt`   | ✅       | When job should run (defaults to now)   |
+| `priority`    | ❌       | 1-10, lower runs first (default: 5)     |
+| `concurrency` | ❌       | Max concurrent jobs with same name      |
+| `dedupeKey`   | ❌       | Prevents duplicate scheduling           |
+| `retry`       | ❌       | Retry config on failure                 |
+| `repeat`      | ❌       | Cron or interval config                 |
+
+---
+
 ## License
 
 MIT
