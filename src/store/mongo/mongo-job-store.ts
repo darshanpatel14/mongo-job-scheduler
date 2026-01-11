@@ -2,6 +2,7 @@ import { Collection, Db, ObjectId } from "mongodb";
 import { JobStore, JobUpdates } from "../job-store";
 import { Job } from "../../types/job";
 import { JobQuery } from "../../types/query";
+import { JobOwnershipError } from "../store-errors";
 
 type MongoJob<T = unknown> = Omit<Job<T>, "_id"> & {
   _id?: ObjectId;
@@ -282,9 +283,9 @@ export class MongoJobStore implements JobStore {
     return null;
   }
 
-  async markCompleted(id: ObjectId): Promise<void> {
-    await this.collection.updateOne(
-      { _id: id },
+  async markCompleted(id: ObjectId, workerId: string): Promise<void> {
+    const result = await this.collection.updateOne(
+      { _id: id, lockedBy: workerId, status: "running" },
       {
         $set: {
           status: "completed",
@@ -297,6 +298,12 @@ export class MongoJobStore implements JobStore {
         },
       }
     );
+
+    if (result.matchedCount === 0) {
+      throw new JobOwnershipError(
+        `Cannot complete job ${id}: ownership lost (expected workerId: ${workerId})`
+      );
+    }
   }
 
   async markFailed(id: ObjectId, error: string): Promise<void> {

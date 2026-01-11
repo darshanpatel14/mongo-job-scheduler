@@ -161,7 +161,7 @@ describe("In Memory Job Store", () => {
       if (!job) break;
 
       processed++;
-      await store.markCompleted(job._id);
+      await store.markCompleted(job._id, "worker");
     }
 
     expect(processed).toBe(count);

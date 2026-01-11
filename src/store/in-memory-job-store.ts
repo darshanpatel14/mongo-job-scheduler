@@ -1,7 +1,11 @@
 import { Job } from "../types/job";
 import { JobStore, JobUpdates } from "./job-store";
 import { JobQuery } from "../types/query";
-import { JobNotFoundError, JobLockError } from "./store-errors";
+import {
+  JobNotFoundError,
+  JobLockError,
+  JobOwnershipError,
+} from "./store-errors";
 import { Mutex } from "./mutex";
 
 export class InMemoryJobStore implements JobStore {
@@ -100,13 +104,22 @@ export class InMemoryJobStore implements JobStore {
     }
   }
 
-  async markCompleted(jobId: unknown): Promise<void> {
+  async markCompleted(jobId: unknown, workerId: string): Promise<void> {
     const job = this.jobs.get(String(jobId));
     if (!job) throw new JobNotFoundError();
+
+    if (job.lockedBy !== workerId || job.status !== "running") {
+      throw new JobOwnershipError(
+        `Cannot complete job ${jobId}: ownership lost (expected workerId: ${workerId})`
+      );
+    }
 
     job.status = "completed";
     job.lastRunAt = new Date();
     job.updatedAt = new Date();
+    job.lockedAt = undefined;
+    job.lockedBy = undefined;
+    job.lockUntil = undefined;
   }
 
   async markFailed(jobId: unknown, error: string): Promise<void> {

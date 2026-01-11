@@ -11,3 +11,10 @@ export class JobLockError extends Error {
     this.name = "JobLockError";
   }
 }
+
+export class JobOwnershipError extends Error {
+  constructor(message = "Job ownership lost") {
+    super(message);
+    this.name = "JobOwnershipError";
+  }
+}

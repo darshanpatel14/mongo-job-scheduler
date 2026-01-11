@@ -23,9 +23,9 @@ export interface JobStore {
   }): Promise<Job | null>;
 
   /**
-   * Mark job as completed
+   * Mark job as completed (requires ownership verification)
    */
-  markCompleted(jobId: unknown): Promise<void>;
+  markCompleted(jobId: unknown, workerId: string): Promise<void>;
 
   /**
    * Mark job as failed

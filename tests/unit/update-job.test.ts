@@ -49,7 +49,14 @@ describe("Job Updates", () => {
       name: "completed-job",
     });
 
-    await store.markCompleted(job._id);
+    // Lock the job first (required for ownership verification)
+    const locked = await store.findAndLockNext({
+      now: new Date(),
+      workerId: "test-worker",
+      lockTimeoutMs: 60000,
+    });
+
+    await store.markCompleted(locked!._id, "test-worker");
 
     // Reschedule
     const nextRunAt = new Date(Date.now() + 1000);

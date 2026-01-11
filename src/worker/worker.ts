@@ -186,7 +186,7 @@ export class Worker {
       }
 
       if (!job.repeat) {
-        await this.store.markCompleted(job._id);
+        await this.store.markCompleted(job._id, this.workerId);
         this.emitter.emitSafe("job:success", job);
       }
 
