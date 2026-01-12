@@ -18,3 +18,10 @@ export class JobOwnershipError extends Error {
     this.name = "JobOwnershipError";
   }
 }
+
+export class MongoConnectionError extends Error {
+  constructor(message: string, public readonly originalError?: Error) {
+    super(message);
+    this.name = "MongoConnectionError";
+  }
+}

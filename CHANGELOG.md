@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-01-12
+
+### Added
+
+- **Connection retry wrapper for MongoDB operations**: Handles transient network errors gracefully
+  - New `withRetry()` utility with exponential backoff and jitter
+  - `isRetryableError()` detects transient MongoDB errors (MongoNetworkError, ECONNREFUSED, etc.)
+  - `retryConfig` option in `MongoJobStoreOptions` for customization
+  - All critical store operations wrapped with retry logic
+
+### New Exports
+
+- `withRetry`, `isRetryableError`, `RetryConfig`, `DEFAULT_RETRY_CONFIG` from `mongo-job-scheduler`
+- `MongoConnectionError` custom error class
+
+---
+
 ## [1.0.1] - 2026-01-11
 
 ### Added

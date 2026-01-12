@@ -147,6 +147,57 @@ During MongoDB primary election or network glitches:
 
 ---
 
+## Connection Retry Wrapper
+
+### Automatic Retry for Transient Errors
+
+`MongoJobStore` includes a built-in retry wrapper that handles transient connection errors with exponential backoff:
+
+```javascript
+const store = new MongoJobStore(db, {
+  retryConfig: {
+    maxAttempts: 5, // Number of retry attempts (default: 3)
+    initialDelayMs: 100, // Initial delay before first retry
+    maxDelayMs: 5000, // Maximum delay between retries
+    onRetry: (err, attempt, delay) => {
+      console.log(`Retry ${attempt} after ${delay}ms: ${err.message}`);
+    },
+  },
+});
+```
+
+### Retryable Errors
+
+The wrapper automatically detects and retries these transient errors:
+
+| Error Type       | Examples                                          |
+| ---------------- | ------------------------------------------------- |
+| MongoDB Errors   | `MongoNetworkError`, `MongoServerSelectionError`  |
+| System Codes     | `ECONNREFUSED`, `ETIMEDOUT`, `ECONNRESET`         |
+| MongoDB Codes    | 89 (NetworkTimeout), 91 (ShutdownInProgress)      |
+| Message Patterns | "connection", "network", "topology was destroyed" |
+
+### Using the Retry Wrapper Directly
+
+For custom operations, you can import and use the retry wrapper:
+
+```typescript
+import { withRetry, isRetryableError } from "mongo-job-scheduler";
+
+// Wrap your operation
+const result = await withRetry(() => collection.findOne({ _id: id }), {
+  maxAttempts: 3,
+  initialDelayMs: 100,
+});
+
+// Check if error is retryable
+if (isRetryableError(error)) {
+  // Handle transient error
+}
+```
+
+---
+
 ## Cron Jobs and Restarts
 
 ### Missed Executions
