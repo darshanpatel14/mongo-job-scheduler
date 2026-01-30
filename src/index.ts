@@ -5,3 +5,6 @@ export { InMemoryJobStore } from "./store/in-memory-job-store";
 export * from "./types/job";
 export * from "./types/retry";
 export * from "./types/repeat";
+
+// Debug utilities
+export { DebugLogger, DebugConfig, createDebugLogger } from "./utils";

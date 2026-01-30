@@ -271,14 +271,43 @@ await scheduler.schedule({
 ```typescript
 scheduler.on("job:success", (job) => console.log("Job done:", job._id));
 scheduler.on("job:fail", ({ job, error }) =>
-  console.error("Job failed:", job._id, error)
+  console.error("Job failed:", job._id, error),
 );
 scheduler.on("job:retry", (job) =>
-  console.warn("Retrying:", job._id, "attempt", job.attempts)
+  console.warn("Retrying:", job._id, "attempt", job.attempts),
 );
 
 // More events: scheduler:start, scheduler:stop, worker:start,
 // worker:stop, job:created, job:start, job:cancel
+```
+
+### Debug Mode
+
+Enable detailed logging for troubleshooting production issues:
+
+```typescript
+const scheduler = new Scheduler({
+  store: new MongoJobStore(db),
+  handler: async (job) => {
+    /* ... */
+  },
+  debug: true, // Enable debug logging
+});
+```
+
+Debug logs include scheduler lifecycle, worker polling, lock acquisition, heartbeats, job execution, and retries.
+
+**Custom Logger:**
+
+```typescript
+const scheduler = new Scheduler({
+  // ...
+  debug: {
+    enabled: true,
+    prefix: "[my-app]",
+    logger: (msg, data) => myLogger.debug(msg, data),
+  },
+});
 ```
 
 ### Graceful Shutdown
@@ -418,7 +447,7 @@ const jobSchema = new mongoose.Schema(
     concurrency: { type: Number, min: 1 },
     dedupeKey: { type: String, unique: true, sparse: true },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // Recommended indexes (auto-created by MongoJobStore)

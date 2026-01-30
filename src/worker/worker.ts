@@ -5,6 +5,7 @@ import { WorkerOptions, JobHandler } from "./types";
 import { getRetryDelay } from "./retry";
 import { RetryOptions } from "../types/retry";
 import { getNextRunAt } from "./repeat";
+import { DebugLogger, CategoryLogger, createNoOpLogger } from "../utils";
 
 export class Worker {
   private running = false;
@@ -12,18 +13,25 @@ export class Worker {
   private readonly lockTimeout: number;
   private readonly workerId: string;
   private readonly defaultTimezone?: string;
+  private readonly log: CategoryLogger;
+  private readonly heartbeatLog: CategoryLogger;
 
   constructor(
     private readonly store: JobStore,
     private readonly emitter: SchedulerEmitter,
     private readonly handler: JobHandler,
-    options: WorkerOptions = {}
+    options: WorkerOptions = {},
   ) {
     this.pollInterval = options.pollIntervalMs ?? 500;
     this.lockTimeout = options.lockTimeoutMs ?? 10 * 60 * 1000; // default 10 minutes
     this.workerId =
       options.workerId ?? `worker-${Math.random().toString(36).slice(2)}`;
     this.defaultTimezone = options.defaultTimezone;
+
+    // Use provided debug logger or create no-op
+    const debugLogger = options.debug ?? createNoOpLogger();
+    this.log = debugLogger.child("worker");
+    this.heartbeatLog = debugLogger.child("heartbeat");
   }
 
   private loopPromise?: Promise<void>;
@@ -31,6 +39,8 @@ export class Worker {
   async start(): Promise<void> {
     if (this.running) return;
     this.running = true;
+
+    this.log.log(`Worker started`, { workerId: this.workerId });
 
     this.emitter.emitSafe("worker:start", this.workerId);
 
@@ -45,29 +55,40 @@ export class Worker {
     timeoutMs?: number;
   }): Promise<void> {
     this.running = false;
+
+    this.log.log(`Worker stopping`, {
+      workerId: this.workerId,
+      graceful: options?.graceful,
+    });
+
     this.emitter.emitSafe("worker:stop", this.workerId);
 
     if (options?.graceful && this.loopPromise) {
       const timeoutMs = options.timeoutMs ?? 30000; // default 30s
 
       const timeout = new Promise<void>((_, reject) =>
-        setTimeout(() => reject(new Error("Worker stop timed out")), timeoutMs)
+        setTimeout(() => reject(new Error("Worker stop timed out")), timeoutMs),
       );
 
       try {
         await Promise.race([this.loopPromise, timeout]);
       } catch (err) {
         if (err instanceof Error && err.message === "Worker stop timed out") {
+          this.log.log(`Worker stop timed out`, { workerId: this.workerId });
           return;
         }
         throw err;
       }
     }
+
+    this.log.log(`Worker stopped`, { workerId: this.workerId });
   }
 
   private async loop(): Promise<void> {
     while (this.running) {
       if (!this.running) break;
+
+      this.log.log(`Polling for jobs`, { workerId: this.workerId });
 
       const job = await this.store.findAndLockNext({
         now: new Date(),
@@ -78,9 +99,21 @@ export class Worker {
       if (!this.running) break;
 
       if (!job) {
+        this.log.log(`No jobs available, sleeping`, {
+          workerId: this.workerId,
+          sleepMs: this.pollInterval,
+        });
         await this.sleep(this.pollInterval);
         continue;
       }
+
+      this.log.log(`Acquired lock`, {
+        workerId: this.workerId,
+        jobId: String(job._id),
+        jobName: job.name,
+        priority: job.priority,
+        attempts: job.attempts,
+      });
 
       await this.execute(job);
     }
@@ -91,6 +124,12 @@ export class Worker {
 
     const now = Date.now();
 
+    this.log.log(`Executing job`, {
+      jobId: String(job._id),
+      jobName: job.name,
+      workerId: this.workerId,
+    });
+
     // Heartbeat to prevent lock expiry during long jobs
     const heartbeatIntervalMs = Math.max(50, this.lockTimeout / 2);
     const heartbeatParams = {
@@ -99,6 +138,7 @@ export class Worker {
     };
 
     let stopHeartbeat = false;
+    let heartbeatCount = 0;
 
     const heartbeatLoop = async () => {
       while (!stopHeartbeat) {
@@ -108,14 +148,24 @@ export class Worker {
         try {
           await this.store.renewLock(
             heartbeatParams.jobId,
-            heartbeatParams.workerId
+            heartbeatParams.workerId,
           );
+          heartbeatCount++;
+          this.heartbeatLog.log(`Lock renewed`, {
+            jobId: String(heartbeatParams.jobId),
+            workerId: heartbeatParams.workerId,
+            count: heartbeatCount,
+          });
         } catch (err) {
+          this.heartbeatLog.log(`Heartbeat failed`, {
+            jobId: String(heartbeatParams.jobId),
+            error: String(err),
+          });
           this.emitter.emitSafe(
             "worker:error",
             new Error(
-              `Heartbeat failed for job ${heartbeatParams.jobId}: ${err}`
-            )
+              `Heartbeat failed for job ${heartbeatParams.jobId}: ${err}`,
+            ),
           );
           break;
         }
@@ -129,33 +179,44 @@ export class Worker {
       const current = await this.store.findById(job._id);
 
       if (!current) {
+        this.log.log(`Job not found, aborting`, { jobId: String(job._id) });
         stopHeartbeat = true;
         return;
       }
 
       if (current.status === "cancelled") {
+        this.log.log(`Job was cancelled, skipping`, { jobId: String(job._id) });
         this.emitter.emitSafe("job:complete", job);
         stopHeartbeat = true;
         return;
       }
 
       if (current.lockedBy !== this.workerId) {
+        this.log.log(`Lock stolen`, {
+          jobId: String(job._id),
+          ownedBy: current.lockedBy,
+          workerId: this.workerId,
+        });
         this.emitter.emitSafe(
           "worker:error",
           new Error(
-            `Lock stolen for job ${job._id}: owned by ${current.lockedBy}, we are ${this.workerId}`
-          )
+            `Lock stolen for job ${job._id}: owned by ${current.lockedBy}, we are ${this.workerId}`,
+          ),
         );
         stopHeartbeat = true;
         return;
       }
 
       if (current.status !== "running") {
+        this.log.log(`Job no longer running`, {
+          jobId: String(job._id),
+          status: current.status,
+        });
         this.emitter.emitSafe(
           "worker:error",
           new Error(
-            `Job ${job._id} is no longer running (status: ${current.status})`
-          )
+            `Job ${job._id} is no longer running (status: ${current.status})`,
+          ),
         );
         stopHeartbeat = true;
         return;
@@ -173,6 +234,11 @@ export class Worker {
           next = getNextRunAt(job.repeat, base, this.defaultTimezone);
         }
 
+        this.log.log(`Cron rescheduled`, {
+          jobId: String(job._id),
+          nextRunAt: next.toISOString(),
+        });
+
         job.lastScheduledAt = next;
         await this.store.reschedule(job._id, next);
       }
@@ -182,17 +248,37 @@ export class Worker {
       // INTERVAL: schedule after execution
       if (job.repeat?.every != null) {
         const next = new Date(Date.now() + Math.max(job.repeat.every, 100));
+
+        this.log.log(`Interval rescheduled`, {
+          jobId: String(job._id),
+          nextRunAt: next.toISOString(),
+          intervalMs: job.repeat.every,
+        });
+
         await this.store.reschedule(job._id, next);
       }
 
       if (!job.repeat) {
         await this.store.markCompleted(job._id, this.workerId);
+
+        this.log.log(`Job completed`, {
+          jobId: String(job._id),
+          jobName: job.name,
+          duration: Date.now() - now,
+        });
+
         this.emitter.emitSafe("job:success", job);
       }
 
       this.emitter.emitSafe("job:complete", job);
     } catch (err: any) {
       const error = err instanceof Error ? err : new Error(String(err));
+
+      this.log.log(`Job execution error`, {
+        jobId: String(job._id),
+        jobName: job.name,
+        error: error.message,
+      });
 
       const attempts = (job.attempts ?? 0) + 1;
       let retry = job.retry;
@@ -202,7 +288,17 @@ export class Worker {
       }
 
       if (retry && attempts < retry.maxAttempts) {
-        const nextRunAt = new Date(Date.now() + getRetryDelay(retry, attempts));
+        const delay = getRetryDelay(retry, attempts);
+        const nextRunAt = new Date(Date.now() + delay);
+
+        this.log.log(`Scheduling retry`, {
+          jobId: String(job._id),
+          attempt: attempts,
+          maxAttempts: retry.maxAttempts,
+          delayMs: delay,
+          nextRunAt: nextRunAt.toISOString(),
+        });
+
         await this.store.reschedule(job._id, nextRunAt, { attempts });
 
         this.emitter.emitSafe("job:retry", {
@@ -211,6 +307,13 @@ export class Worker {
           lastError: error.message,
         });
       } else {
+        this.log.log(`Job failed permanently`, {
+          jobId: String(job._id),
+          jobName: job.name,
+          attempts,
+          error: error.message,
+        });
+
         await this.store.update(job._id, { attempts });
         await this.store.markFailed(job._id, error.message);
         this.emitter.emitSafe("job:fail", { job, error });
