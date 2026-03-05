@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2026-03-05
+
+### Added
+
+- **`lastScheduledAt` support in `ScheduleOptions`** — Allows consumer code to pass through the last scheduled time when creating a job. Used as the base for calculating the next cron/interval run.
+- **`nextRunAt` alias in `ScheduleOptions`** — Alias for `runAt`. If both are provided, `runAt` takes precedence.
+
+### Changed
+
+- `ScheduleOptions`: added optional `nextRunAt` and `lastScheduledAt` fields
+- `Scheduler.schedule()`: uses `options.nextRunAt` as fallback for `runAt`, passes `lastScheduledAt` to the job document
+
+---
+
 ## [1.1.0] - 2026-03-05
 
 ### Added

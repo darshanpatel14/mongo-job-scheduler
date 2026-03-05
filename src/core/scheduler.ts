@@ -129,7 +129,7 @@ export class Scheduler {
     // ------------------------
     // Normalize run time
     // ------------------------
-    const nextRunAt = options.runAt ?? now;
+    const nextRunAt = options.runAt ?? options.nextRunAt ?? now;
     if (isNaN(nextRunAt.getTime())) {
       throw new Error("Invalid Date provided for runAt");
     }
@@ -150,6 +150,7 @@ export class Scheduler {
       status: "pending",
       attempts: 0,
       nextRunAt,
+      lastScheduledAt: options.lastScheduledAt,
       retry: options.retry,
       repeat: options.repeat,
       dedupeKey: options.dedupeKey,

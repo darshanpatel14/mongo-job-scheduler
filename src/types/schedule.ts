@@ -45,4 +45,15 @@ export interface ScheduleOptions<T = unknown> {
    * Overrides the global defaultMaxExecutionMs if set.
    */
   maxExecutionMs?: number;
+
+  /**
+   * Alias for runAt. If both are provided, runAt takes precedence.
+   */
+  nextRunAt?: Date;
+
+  /**
+   * Last scheduled time for repeat jobs.
+   * Used as the base for calculating the next cron/interval run.
+   */
+  lastScheduledAt?: Date;
 }
