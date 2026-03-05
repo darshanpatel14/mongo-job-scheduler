@@ -15,6 +15,7 @@ export type SchedulerEventMap = {
   "job:retry": Job;
   "job:complete": Job;
   "job:cancel": Job;
+  "job:stalled": Job;
 
   // recovery
   "resume:start": void;

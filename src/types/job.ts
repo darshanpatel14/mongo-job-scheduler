@@ -42,9 +42,17 @@ export interface Job<Data = unknown> {
 
   /**
    * Max concurrent running jobs with this name.
-   * undefined = no limit.
+   * Useful for rate-limiting external API calls.
    */
   concurrency?: number;
+
+  /**
+   * Max execution time in milliseconds.
+   * If the job handler runs longer than this, the heartbeat stops renewing
+   * the lock, allowing crash recovery to pick it up.
+   * undefined = no limit (heartbeat renews indefinitely).
+   */
+  maxExecutionMs?: number;
 
   createdAt: Date;
   updatedAt: Date;

@@ -23,6 +23,14 @@ export interface SchedulerOptions {
   lockTimeoutMs?: number;
   defaultTimezone?: string;
 
+  /**
+   * Default max execution time in milliseconds.
+   * Jobs running longer will have their heartbeat stopped,
+   * allowing crash recovery to take over.
+   * undefined = no limit (backward compatible).
+   */
+  maxExecutionMs?: number;
+
   /** Enable debug logging (pass true or DebugConfig object) */
   debug?: boolean | DebugConfig;
 }
@@ -39,6 +47,7 @@ export class Scheduler {
   private readonly pollInterval: number;
   private readonly lockTimeout: number;
   private readonly defaultTimezone?: string;
+  private readonly maxExecutionMs?: number;
   private readonly debugLogger: DebugLogger;
   private readonly log: CategoryLogger;
 
@@ -52,6 +61,14 @@ export class Scheduler {
     this.pollInterval = options.pollIntervalMs ?? 500;
     this.lockTimeout = options.lockTimeoutMs ?? 10 * 60 * 1000; // default 10 minutes
     this.defaultTimezone = options.defaultTimezone;
+    this.maxExecutionMs = options.maxExecutionMs;
+
+    // Validate maxExecutionMs
+    if (this.maxExecutionMs !== undefined) {
+      if (!Number.isInteger(this.maxExecutionMs) || this.maxExecutionMs <= 0) {
+        throw new Error("maxExecutionMs must be a positive integer");
+      }
+    }
 
     // Initialize debug logger
     this.debugLogger = createDebugLogger(options.debug);
@@ -117,6 +134,16 @@ export class Scheduler {
       throw new Error("Invalid Date provided for runAt");
     }
 
+    // Validate maxExecutionMs if set per-job
+    if (options.maxExecutionMs !== undefined) {
+      if (
+        !Number.isInteger(options.maxExecutionMs) ||
+        options.maxExecutionMs <= 0
+      ) {
+        throw new Error("maxExecutionMs must be a positive integer");
+      }
+    }
+
     const job: Job<T> = {
       name: options.name,
       data: options.data,
@@ -128,6 +155,7 @@ export class Scheduler {
       dedupeKey: options.dedupeKey,
       priority: options.priority,
       concurrency: options.concurrency,
+      maxExecutionMs: options.maxExecutionMs,
       lockVersion: 0,
       createdAt: now,
       updatedAt: now,
@@ -192,6 +220,16 @@ export class Scheduler {
         }
       }
 
+      // Validate maxExecutionMs if set per-job
+      if (options.maxExecutionMs !== undefined) {
+        if (
+          !Number.isInteger(options.maxExecutionMs) ||
+          options.maxExecutionMs <= 0
+        ) {
+          throw new Error("maxExecutionMs must be a positive integer");
+        }
+      }
+
       const job: Job = {
         name: options.name,
         data: options.data,
@@ -202,6 +240,7 @@ export class Scheduler {
         dedupeKey: options.dedupeKey,
         priority: options.priority,
         concurrency: options.concurrency,
+        maxExecutionMs: options.maxExecutionMs,
         lockVersion: 0,
       } as Job;
 
@@ -332,6 +371,7 @@ export class Scheduler {
         workerId,
         defaultTimezone: this.defaultTimezone,
         debug: this.debugLogger,
+        maxExecutionMs: this.maxExecutionMs,
       });
 
       this.workers.push(worker);

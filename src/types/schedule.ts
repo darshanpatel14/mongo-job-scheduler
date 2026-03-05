@@ -37,4 +37,12 @@ export interface ScheduleOptions<T = unknown> {
    * Useful for rate-limiting external API calls.
    */
   concurrency?: number;
+
+  /**
+   * Max execution time in milliseconds.
+   * If the job handler runs longer than this, the heartbeat stops renewing
+   * the lock, allowing crash recovery to take over.
+   * Overrides the global defaultMaxExecutionMs if set.
+   */
+  maxExecutionMs?: number;
 }

@@ -17,6 +17,7 @@ A production-grade MongoDB-backed job scheduler for Node.js with distributed loc
 - ✅ **Interval jobs** — repeated execution
 - ✅ **Crash recovery** — resume on restart
 - ✅ **Heartbeats** — automatic lock renewal for long jobs
+- ✅ **Stall detection** — stops stuck jobs from renewing forever
 - ✅ **Query API** — filter, sort, paginate jobs
 - ✅ **Auto-indexing** — performance optimized out of the box
 - ✅ **Sharding-safe** — designed for MongoDB sharding
@@ -234,6 +235,35 @@ await scheduler.schedule({
 
 > **Note**: Concurrency is enforced globally across all workers. Jobs exceeding the limit wait until a slot frees up.
 
+### Max Execution Time (Stall Detection)
+
+Prevent stuck jobs from renewing locks forever:
+
+```typescript
+// Global default: all jobs time out after 5 minutes
+const scheduler = new Scheduler({
+  store: new MongoJobStore(db),
+  maxExecutionMs: 300000, // 5 minutes
+  handler: async (job) => {
+    /* ... */
+  },
+});
+
+// Per-job override: this job gets 30 seconds
+await scheduler.schedule({
+  name: "quick-api-call",
+  maxExecutionMs: 30000,
+});
+```
+
+When a handler exceeds the limit:
+
+1. The heartbeat stops renewing the lock
+2. A `job:stalled` event is emitted
+3. The lock expires, and crash recovery picks up the job
+
+> **Note**: The handler is not forcefully killed (Node.js cannot abort a running async function). The lock simply expires, allowing recovery. When `maxExecutionMs` is not set, heartbeats renew indefinitely (backward compatible).
+
 ### Retries with Backoff
 
 ```typescript
@@ -275,6 +305,10 @@ scheduler.on("job:fail", ({ job, error }) =>
 );
 scheduler.on("job:retry", (job) =>
   console.warn("Retrying:", job._id, "attempt", job.attempts),
+);
+
+scheduler.on("job:stalled", (job) =>
+  console.warn("Job stalled (maxExecutionMs exceeded):", job._id),
 );
 
 // More events: scheduler:start, scheduler:stop, worker:start,
@@ -398,6 +432,7 @@ interface Job<T = unknown> {
   // Other
   priority: number; // 1-10, lower = higher priority (default: 5)
   concurrency?: number; // Max concurrent jobs with same name
+  maxExecutionMs?: number; // Max execution time before stall detection
   dedupeKey?: string; // Unique key for deduplication
 
   // Timestamps
@@ -445,6 +480,7 @@ const jobSchema = new mongoose.Schema(
 
     priority: { type: Number, default: 5, min: 1, max: 10 },
     concurrency: { type: Number, min: 1 },
+    maxExecutionMs: { type: Number, min: 1 },
     dedupeKey: { type: String, unique: true, sparse: true },
   },
   { timestamps: true },
@@ -457,17 +493,18 @@ jobSchema.index({ name: 1, status: 1 });
 
 ### Field Reference
 
-| Field         | Required | Description                             |
-| ------------- | -------- | --------------------------------------- |
-| `name`        | ✅       | Job type identifier used in handler     |
-| `data`        | ❌       | Custom payload for your job             |
-| `status`      | Auto     | Set by scheduler, don't modify directly |
-| `nextRunAt`   | ✅       | When job should run (defaults to now)   |
-| `priority`    | ❌       | 1-10, lower runs first (default: 5)     |
-| `concurrency` | ❌       | Max concurrent jobs with same name      |
-| `dedupeKey`   | ❌       | Prevents duplicate scheduling           |
-| `retry`       | ❌       | Retry config on failure                 |
-| `repeat`      | ❌       | Cron or interval config                 |
+| Field            | Required | Description                             |
+| ---------------- | -------- | --------------------------------------- |
+| `name`           | ✅       | Job type identifier used in handler     |
+| `data`           | ❌       | Custom payload for your job             |
+| `status`         | Auto     | Set by scheduler, don't modify directly |
+| `nextRunAt`      | ✅       | When job should run (defaults to now)   |
+| `priority`       | ❌       | 1-10, lower runs first (default: 5)     |
+| `concurrency`    | ❌       | Max concurrent jobs with same name      |
+| `maxExecutionMs` | ❌       | Max execution time before stall (ms)    |
+| `dedupeKey`      | ❌       | Prevents duplicate scheduling           |
+| `retry`          | ❌       | Retry config on failure                 |
+| `repeat`         | ❌       | Cron or interval config                 |
 
 ---
 

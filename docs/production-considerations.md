@@ -385,13 +385,21 @@ scheduler.on("job:fail", ({ job, error }) => {
 scheduler.on("job:retry", (job) => {
   metrics.jobsRetried.inc({ name: job.name });
 });
+
+scheduler.on("job:stalled", (job) => {
+  metrics.jobsStalled.inc({ name: job.name });
+  logger.warn("Job stalled (maxExecutionMs exceeded)", {
+    jobId: job._id,
+    name: job.name,
+  });
+});
 ```
 
 ### Recommended Alerts
 
 1. **High failure rate**: `job:fail` events > threshold
 2. **Queue depth**: pending jobs growing faster than processed
-3. **Stuck jobs**: `status: running` with `lockUntil` in the past
+3. **Stuck jobs**: `job:stalled` events (set `maxExecutionMs` to detect automatically)
 4. **Memory growth**: heap usage trending upward
 
 ---

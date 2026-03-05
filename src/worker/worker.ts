@@ -13,6 +13,7 @@ export class Worker {
   private readonly lockTimeout: number;
   private readonly workerId: string;
   private readonly defaultTimezone?: string;
+  private readonly defaultMaxExecutionMs?: number;
   private readonly log: CategoryLogger;
   private readonly heartbeatLog: CategoryLogger;
 
@@ -27,6 +28,7 @@ export class Worker {
     this.workerId =
       options.workerId ?? `worker-${Math.random().toString(36).slice(2)}`;
     this.defaultTimezone = options.defaultTimezone;
+    this.defaultMaxExecutionMs = options.maxExecutionMs;
 
     // Use provided debug logger or create no-op
     const debugLogger = options.debug ?? createNoOpLogger();
@@ -137,13 +139,28 @@ export class Worker {
       workerId: this.workerId,
     };
 
+    // Resolve effective max execution time: per-job overrides global default
+    const effectiveMaxExec = job.maxExecutionMs ?? this.defaultMaxExecutionMs;
+
     let stopHeartbeat = false;
     let heartbeatCount = 0;
 
     const heartbeatLoop = async () => {
+      const startedAt = Date.now();
       while (!stopHeartbeat) {
         await this.sleep(heartbeatIntervalMs);
         if (stopHeartbeat) break;
+
+        // Stall detection: stop renewing if max execution time exceeded
+        if (effectiveMaxExec && Date.now() - startedAt > effectiveMaxExec) {
+          this.heartbeatLog.log(`Max execution time exceeded (stalled)`, {
+            jobId: String(heartbeatParams.jobId),
+            maxExecutionMs: effectiveMaxExec,
+            elapsedMs: Date.now() - startedAt,
+          });
+          this.emitter.emitSafe("job:stalled", job);
+          break; // stop renewing → lock expires → crash recovery picks it up
+        }
 
         try {
           await this.store.renewLock(
