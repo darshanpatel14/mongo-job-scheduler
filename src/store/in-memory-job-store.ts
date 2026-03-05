@@ -78,7 +78,7 @@ export class InMemoryJobStore implements JobStore {
         // Check concurrency limit if defined
         if (job.concurrency !== undefined && job.concurrency > 0) {
           const runningCount = Array.from(this.jobs.values()).filter(
-            (j) => j.name === job.name && j.status === "running"
+            (j) => j.name === job.name && j.status === "running",
           ).length;
 
           if (runningCount >= job.concurrency) {
@@ -110,7 +110,7 @@ export class InMemoryJobStore implements JobStore {
 
     if (job.lockedBy !== workerId || job.status !== "running") {
       throw new JobOwnershipError(
-        `Cannot complete job ${jobId}: ownership lost (expected workerId: ${workerId})`
+        `Cannot complete job ${jobId}: ownership lost (expected workerId: ${workerId})`,
       );
     }
 
@@ -134,7 +134,7 @@ export class InMemoryJobStore implements JobStore {
   async reschedule(
     jobId: unknown,
     nextRunAt: Date,
-    updates?: { attempts?: number }
+    updates?: { attempts?: number; lastScheduledAt?: Date },
   ): Promise<void> {
     const job = this.jobs.get(String(jobId));
     if (!job) throw new JobNotFoundError();
@@ -149,7 +149,10 @@ export class InMemoryJobStore implements JobStore {
     job.lockedAt = undefined;
     job.lockedBy = undefined;
     job.updatedAt = new Date();
-    job.lastScheduledAt = nextRunAt;
+
+    if (updates?.lastScheduledAt) {
+      job.lastScheduledAt = updates.lastScheduledAt;
+    }
   }
 
   async recoverStaleJobs({
@@ -239,7 +242,7 @@ export class InMemoryJobStore implements JobStore {
 
   async countRunning(jobName: string): Promise<number> {
     return Array.from(this.jobs.values()).filter(
-      (j) => j.name === jobName && j.status === "running"
+      (j) => j.name === jobName && j.status === "running",
     ).length;
   }
 

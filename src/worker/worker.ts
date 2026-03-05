@@ -257,7 +257,9 @@ export class Worker {
         });
 
         job.lastScheduledAt = next;
-        await this.store.reschedule(job._id, next);
+        await this.store.reschedule(job._id, next, {
+          lastScheduledAt: next,
+        });
       }
 
       await this.handler(job);
@@ -272,7 +274,10 @@ export class Worker {
           intervalMs: job.repeat.every,
         });
 
-        await this.store.reschedule(job._id, next);
+        job.lastScheduledAt = next;
+        await this.store.reschedule(job._id, next, {
+          lastScheduledAt: next,
+        });
       }
 
       if (!job.repeat) {

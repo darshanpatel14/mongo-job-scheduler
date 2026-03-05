@@ -38,7 +38,7 @@ export interface JobStore {
   reschedule(
     jobId: unknown,
     nextRunAt: Date,
-    updates?: { attempts?: number; lastError?: string }
+    updates?: { attempts?: number; lastError?: string; lastScheduledAt?: Date },
   ): Promise<void>;
 
   /**

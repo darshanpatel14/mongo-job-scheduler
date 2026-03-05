@@ -11,6 +11,7 @@ import {
   CategoryLogger,
   createDebugLogger,
 } from "../utils";
+import { getNextRunAt } from "../worker/repeat";
 
 export interface SchedulerOptions {
   id?: string;
@@ -129,7 +130,28 @@ export class Scheduler {
     // ------------------------
     // Normalize run time
     // ------------------------
-    const nextRunAt = options.runAt ?? options.nextRunAt ?? now;
+    let nextRunAt = options.runAt ?? options.nextRunAt;
+
+    if (options.lastScheduledAt && options.repeat) {
+      // lastScheduledAt takes priority as the base for calculating the next slot
+      let currentNext = getNextRunAt(
+        options.repeat,
+        options.lastScheduledAt,
+        options.repeat.timezone ?? this.defaultTimezone,
+      );
+
+      // skip missed slots
+      while (currentNext.getTime() <= now.getTime()) {
+        currentNext = getNextRunAt(
+          options.repeat,
+          currentNext,
+          options.repeat.timezone ?? this.defaultTimezone,
+        );
+      }
+      nextRunAt = currentNext;
+    } else if (!nextRunAt) {
+      nextRunAt = now;
+    }
     if (isNaN(nextRunAt.getTime())) {
       throw new Error("Invalid Date provided for runAt");
     }
@@ -203,6 +225,8 @@ export class Scheduler {
         throw new Error("Cannot specify both cron and every");
       }
 
+      const now = new Date();
+
       // Priority validation
       if (options.priority !== undefined) {
         if (
@@ -231,11 +255,32 @@ export class Scheduler {
         }
       }
 
+      let nextRunAt = options.runAt ?? options.nextRunAt;
+      if (options.lastScheduledAt && options.repeat) {
+        let currentNext = getNextRunAt(
+          options.repeat,
+          options.lastScheduledAt,
+          options.repeat.timezone ?? this.defaultTimezone,
+        );
+
+        while (currentNext.getTime() <= now.getTime()) {
+          currentNext = getNextRunAt(
+            options.repeat,
+            currentNext,
+            options.repeat.timezone ?? this.defaultTimezone,
+          );
+        }
+        nextRunAt = currentNext;
+      } else if (!nextRunAt) {
+        nextRunAt = now;
+      }
+
       const job: Job = {
         name: options.name,
         data: options.data,
         status: "pending",
-        nextRunAt: options.runAt ?? new Date(),
+        nextRunAt: nextRunAt,
+        lastScheduledAt: options.lastScheduledAt,
         repeat: options.repeat,
         retry: options.retry,
         dedupeKey: options.dedupeKey,

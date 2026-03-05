@@ -23,7 +23,7 @@ export class MongoJobStore implements JobStore {
 
   constructor(db: Db, options: MongoJobStoreOptions = {}) {
     this.collection = db.collection<MongoJob>(
-      options.collectionName ?? "scheduler_jobs"
+      options.collectionName ?? "scheduler_jobs",
     );
     this.defaultLockTimeoutMs = options.lockTimeoutMs ?? 30_000;
     this.retryConfig = options.retryConfig ?? {};
@@ -38,15 +38,15 @@ export class MongoJobStore implements JobStore {
     await Promise.all([
       this.collection.createIndex(
         { status: 1, priority: 1, nextRunAt: 1 },
-        { background: true }
+        { background: true },
       ),
       this.collection.createIndex(
         { dedupeKey: 1 },
-        { unique: true, sparse: true, background: true }
+        { unique: true, sparse: true, background: true },
       ),
       this.collection.createIndex(
         { lockUntil: 1 },
-        { sparse: true, background: true }
+        { sparse: true, background: true },
       ),
       this.collection.createIndex({ name: 1, status: 1 }, { background: true }),
     ]);
@@ -76,16 +76,16 @@ export class MongoJobStore implements JobStore {
           this.collection.findOneAndUpdate(
             { dedupeKey: job.dedupeKey },
             { $setOnInsert: doc },
-            { upsert: true, returnDocument: "after" }
+            { upsert: true, returnDocument: "after" },
           ),
-        this.retryConfig
+        this.retryConfig,
       );
       return result as unknown as Job;
     }
 
     const result = await withRetry(
       () => this.collection.insertOne(doc),
-      this.retryConfig
+      this.retryConfig,
     );
     return { ...doc, _id: result.insertedId };
   }
@@ -113,7 +113,7 @@ export class MongoJobStore implements JobStore {
 
     const result = await withRetry(
       () => this.collection.insertMany(docs),
-      this.retryConfig
+      this.retryConfig,
     );
 
     return docs.map((doc, index) => ({
@@ -168,7 +168,7 @@ export class MongoJobStore implements JobStore {
       {
         sort: { priority: 1, nextRunAt: 1 },
         returnDocument: "after",
-      }
+      },
     );
 
     if (simpleResult) {
@@ -254,7 +254,7 @@ export class MongoJobStore implements JobStore {
         {
           sort: { priority: 1, nextRunAt: 1 },
           returnDocument: "after",
-        }
+        },
       );
 
       if (lockResult) {
@@ -283,7 +283,7 @@ export class MongoJobStore implements JobStore {
                 lockUntil: "",
                 lastRunAt: "",
               },
-            }
+            },
           );
           continue;
         }
@@ -313,14 +313,14 @@ export class MongoJobStore implements JobStore {
               lockedBy: "",
               lockUntil: "",
             },
-          }
+          },
         ),
-      this.retryConfig
+      this.retryConfig,
     );
 
     if (result.matchedCount === 0) {
       throw new JobOwnershipError(
-        `Cannot complete job ${id}: ownership lost (expected workerId: ${workerId})`
+        `Cannot complete job ${id}: ownership lost (expected workerId: ${workerId})`,
       );
     }
   }
@@ -341,36 +341,47 @@ export class MongoJobStore implements JobStore {
               lockedBy: "",
               lockUntil: "",
             },
-          }
+          },
         ),
-      this.retryConfig
+      this.retryConfig,
     );
   }
 
   async reschedule(
-    id: ObjectId,
+    jobId: unknown,
     nextRunAt: Date,
-    updates?: { attempts?: number; lastError?: string }
+    updates?: { attempts?: number; lastError?: string; lastScheduledAt?: Date },
   ): Promise<void> {
     await withRetry(
       () =>
         this.collection.updateOne(
-          { _id: id },
+          { _id: new ObjectId(jobId as any) },
           {
             $set: {
               status: "pending",
               nextRunAt,
               updatedAt: new Date(),
-              ...(updates ?? {}),
+              ...(updates?.lastError !== undefined
+                ? { lastError: updates.lastError }
+                : {}),
+              ...(updates?.lastScheduledAt !== undefined
+                ? { lastScheduledAt: updates.lastScheduledAt }
+                : {}),
+              ...(updates?.attempts !== undefined
+                ? { attempts: updates.attempts }
+                : {}),
             },
             $unset: {
               lockedAt: "",
               lockedBy: "",
               lockUntil: "",
             },
-          }
+            ...(updates?.attempts === undefined
+              ? { $inc: { attempts: 1 } }
+              : {}),
+          },
         ),
-      this.retryConfig
+      this.retryConfig,
     );
   }
 
@@ -389,16 +400,16 @@ export class MongoJobStore implements JobStore {
               lockedBy: "",
               lockUntil: "",
             },
-          }
+          },
         ),
-      this.retryConfig
+      this.retryConfig,
     );
   }
 
   async findById(id: ObjectId): Promise<Job | null> {
     const doc = await withRetry(
       () => this.collection.findOne({ _id: id }),
-      this.retryConfig
+      this.retryConfig,
     );
     if (!doc) return null;
     return doc as unknown as Job;
@@ -430,9 +441,9 @@ export class MongoJobStore implements JobStore {
               lockedBy: "",
               lockUntil: "",
             },
-          }
+          },
         ),
-      this.retryConfig
+      this.retryConfig,
     );
 
     return result.modifiedCount;
@@ -455,9 +466,9 @@ export class MongoJobStore implements JobStore {
               lockUntil: new Date(now.getTime() + this.defaultLockTimeoutMs),
             },
             $inc: { lockVersion: 1 },
-          }
+          },
         ),
-      this.retryConfig
+      this.retryConfig,
     );
 
     if (result.matchedCount === 0) {
@@ -481,7 +492,7 @@ export class MongoJobStore implements JobStore {
 
     await withRetry(
       () => this.collection.updateOne({ _id: id }, { $set }),
-      this.retryConfig
+      this.retryConfig,
     );
   }
 
@@ -492,7 +503,7 @@ export class MongoJobStore implements JobStore {
           name: jobName,
           status: "running",
         }),
-      this.retryConfig
+      this.retryConfig,
     );
   }
 
@@ -523,10 +534,7 @@ export class MongoJobStore implements JobStore {
       cursor = cursor.limit(query.limit);
     }
 
-    const docs = await withRetry(
-      () => cursor.toArray(),
-      this.retryConfig
-    );
+    const docs = await withRetry(() => cursor.toArray(), this.retryConfig);
     return docs as unknown as Job[];
   }
 }

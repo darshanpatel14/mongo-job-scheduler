@@ -187,8 +187,8 @@ describe("Mongo lastScheduledAt & nextRunAt Integration Test", () => {
     const updated = await store.findById(job._id);
     expect(updated).toBeDefined();
 
-    // lastScheduledAt should be preserved from creation
-    expect(new Date(updated!.lastScheduledAt!).getTime()).toBe(
+    // lastScheduledAt should be updated to the new cron slot
+    expect(new Date(updated!.lastScheduledAt!).getTime()).toBeGreaterThan(
       recentPast.getTime(),
     );
 
@@ -260,5 +260,33 @@ describe("Mongo lastScheduledAt & nextRunAt Integration Test", () => {
       expect(delta).toBeGreaterThanOrEqual(400);
       expect(delta).toBeLessThan(2000);
     }
+  });
+
+  // =============================================
+  // 8. auto-calculate nextRunAt for interval jobs
+  // =============================================
+  test("auto-calculates nextRunAt from lastScheduledAt + repeat.every", async () => {
+    const store = new MongoJobStore(db);
+    const scheduler = new Scheduler({ store });
+
+    // scheduled 1 hour ago
+    const lastScheduled = new Date(Date.now() - 3600000);
+
+    const job = await scheduler.schedule({
+      name: "auto-calculate-interval-test",
+      data: {},
+      lastScheduledAt: lastScheduled,
+      repeat: { every: 60000 }, // 1 minute interval
+      // omitting nextRunAt / runAt
+    });
+
+    const now = Date.now();
+    // nextRunAt should be fast-forwarded past missed slots because of the while loop logic
+    expect(job.nextRunAt.getTime()).toBeGreaterThan(now);
+
+    // Verify DB
+    // @ts-ignore
+    const found = await store.findById(job._id);
+    expect(new Date(found!.nextRunAt).getTime()).toBeGreaterThan(now);
   });
 });

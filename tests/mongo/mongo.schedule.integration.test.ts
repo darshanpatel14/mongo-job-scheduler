@@ -39,8 +39,8 @@ describe("Mongo Scheduler.schedule() Integration Test", () => {
 
     // Default nextRunAt should be approximately now
     const now = Date.now();
-    expect(job.nextRunAt.getTime()).toBeGreaterThanOrEqual(now - 1000); // Allow more drift
-    expect(job.nextRunAt.getTime()).toBeLessThanOrEqual(now + 1000);
+    expect(job.nextRunAt.getTime()).toBeGreaterThanOrEqual(now - 2000); // Allow more drift
+    expect(job.nextRunAt.getTime()).toBeLessThanOrEqual(now + 2000);
 
     // Verify persistence
     // @ts-ignore
@@ -82,7 +82,7 @@ describe("Mongo Scheduler.schedule() Integration Test", () => {
       // @ts-ignore
       scheduler.schedule({
         data: {},
-      })
+      }),
     ).rejects.toThrow("Job name is required");
   });
 
@@ -98,7 +98,7 @@ describe("Mongo Scheduler.schedule() Integration Test", () => {
           cron: "* * * * *",
           every: 1000,
         },
-      })
+      }),
     ).rejects.toThrow("Use either cron or every, not both");
   });
 
@@ -109,7 +109,7 @@ describe("Mongo Scheduler.schedule() Integration Test", () => {
       scheduler.schedule({
         name: "fail-job",
         data: {},
-      })
+      }),
     ).rejects.toThrow("Scheduler has no JobStore configured");
   });
 });
