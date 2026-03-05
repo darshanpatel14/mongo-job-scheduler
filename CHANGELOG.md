@@ -2,12 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.2.1] - 2026-03-05
+## [1.2.2] - 2026-03-05
 
 ### Fixed
 
-- **Retry logic in `MongoJobStore`** — Fixed a regression where `reschedule()` was not resetting `attempts` on successful runs, causing repeating jobs to eventually reach their max retry limit.
-- **Test Stability** — Improved resilience of the test suite against environment-specific timing lag by loosening strict drift assertions and increasing timeout windows for heavy-concurrency scenarios.
+- **Retry logic in `MongoJobStore`** — Fixed a regression where `reschedule()` was not resetting `attempts` on successful runs.
+- **Test Stability** — Improved resilience against timing lag.
+- **Exports** — Fixed `src/index.ts` to properly export `ScheduleOptions` and other types for consumers.
+
+## [1.2.1] - 2026-03-05 (Failed or Partial Publish)
+
+- Fixes for attempts reset and test stability.
 
 ## [1.2.0] - 2026-03-05
 
