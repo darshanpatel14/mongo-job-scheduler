@@ -376,9 +376,6 @@ export class MongoJobStore implements JobStore {
               lockedBy: "",
               lockUntil: "",
             },
-            ...(updates?.attempts === undefined
-              ? { $inc: { attempts: 1 } }
-              : {}),
           },
         ),
       this.retryConfig,
