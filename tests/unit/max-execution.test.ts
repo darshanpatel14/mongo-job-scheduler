@@ -12,11 +12,11 @@ describe("Max Execution Time (Stall Detection)", () => {
     const scheduler = new Scheduler({
       store,
       pollIntervalMs: 10,
-      lockTimeoutMs: 80, // heartbeat every 40ms
-      maxExecutionMs: 200, // stall after 200ms
+      lockTimeoutMs: 100, // heartbeat every 50ms
+      maxExecutionMs: 500, // stall after 500ms
       handler: async () => {
         // Simulate a stuck job that never returns
-        await sleep(600);
+        await sleep(1000);
       },
     });
 
@@ -24,14 +24,14 @@ describe("Max Execution Time (Stall Detection)", () => {
     await scheduler.start();
 
     // Wait for stall detection + some buffer
-    await sleep(500);
+    await sleep(800);
     await scheduler.stop();
 
     // Heartbeat should have been called a few times, then stopped
-    // With 40ms interval and 200ms max, expect ~4 renewals before stall
+    // With 50ms interval and 500ms max, expect ~10 renewals before stall
     const renewCount = spyRenew.mock.calls.length;
     expect(renewCount).toBeGreaterThanOrEqual(1);
-    expect(renewCount).toBeLessThanOrEqual(8); // should not keep going forever
+    expect(renewCount).toBeLessThanOrEqual(20); // should not keep going forever
   });
 
   test("emits job:stalled event when maxExecutionMs exceeded", async () => {

@@ -369,7 +369,7 @@ export class MongoJobStore implements JobStore {
                 : {}),
               ...(updates?.attempts !== undefined
                 ? { attempts: updates.attempts }
-                : {}),
+                : { attempts: 0 }),
             },
             $unset: {
               lockedAt: "",

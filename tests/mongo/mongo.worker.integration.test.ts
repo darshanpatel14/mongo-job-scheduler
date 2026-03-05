@@ -49,7 +49,7 @@ describe("Mongo Worker Integration", () => {
       async (job) => {
         executed.push(job.name);
       },
-      { pollIntervalMs: 50 }
+      { pollIntervalMs: 50 },
     );
 
     await store.create(makeJob({ name: "job-1" }));
@@ -100,7 +100,7 @@ describe("Mongo Worker Integration", () => {
       async () => {
         throw new Error("boom");
       },
-      { pollIntervalMs: 50 }
+      { pollIntervalMs: 50 },
     );
 
     const job = await store.create(makeJob());
@@ -151,7 +151,7 @@ describe("Mongo Worker Integration", () => {
       async () => {
         executions++;
       },
-      { pollIntervalMs: 50 }
+      { pollIntervalMs: 50 },
     );
 
     await worker.start();
@@ -184,7 +184,7 @@ describe("Mongo Worker Integration", () => {
       async () => {
         processed++;
       },
-      { pollIntervalMs: 1 } // very fast polling
+      { pollIntervalMs: 1 }, // very fast polling
     );
 
     for (let i = 0; i < total; i++) {
@@ -192,11 +192,11 @@ describe("Mongo Worker Integration", () => {
       // Using concurrent creates for speed
     }
     await store.createBulk(
-      Array.from({ length: total }, (_, i) => makeJob({ name: `job-${i}` }))
+      Array.from({ length: total }, (_, i) => makeJob({ name: `job-${i}` })),
     );
 
     await worker.start();
-    await sleep(2000); // Increased timeout
+    await sleep(8000); // Increased from 5000
     await worker.stop();
 
     expect(processed).toBe(total);

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.1] - 2026-03-05
+
+### Fixed
+
+- **Retry logic in `MongoJobStore`** — Fixed a regression where `reschedule()` was not resetting `attempts` on successful runs, causing repeating jobs to eventually reach their max retry limit.
+- **Test Stability** — Improved resilience of the test suite against environment-specific timing lag by loosening strict drift assertions and increasing timeout windows for heavy-concurrency scenarios.
+
 ## [1.2.0] - 2026-03-05
 
 ### Added

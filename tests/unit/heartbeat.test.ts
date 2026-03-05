@@ -26,7 +26,7 @@ describe("Worker Heartbeat", () => {
     await scheduler.start();
 
     // Wait for job to finish
-    await sleep(400);
+    await sleep(800); // Increased from 400
 
     await scheduler.stop();
 

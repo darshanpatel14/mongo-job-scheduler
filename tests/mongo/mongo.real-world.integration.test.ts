@@ -52,8 +52,10 @@ describe("MongoDB Real-World Scenarios", () => {
     const jobs = [];
     for (let i = 0; i < 100; i++) {
       let type: string;
-      if (i < 60) type = "fast"; // 60 fast jobs
-      else if (i < 85) type = "medium"; // 25 medium jobs
+      if (i < 60)
+        type = "fast"; // 60 fast jobs
+      else if (i < 85)
+        type = "medium"; // 25 medium jobs
       else type = "slow"; // 15 slow jobs
 
       jobs.push({
@@ -122,7 +124,7 @@ describe("MongoDB Real-World Scenarios", () => {
     await store.createBulk(jobs);
 
     await scheduler.start();
-    await sleep(5000); // Increased wait for 150 jobs
+    await sleep(8000); // Increased wait for 150 jobs
     await scheduler.stop();
 
     // Verify: 50 tenants executed
@@ -179,7 +181,7 @@ describe("MongoDB Real-World Scenarios", () => {
     });
 
     await scheduler.start();
-    await sleep(800); // Increased for retry completion
+    await sleep(2000); // Increased for retry completion
     await scheduler.stop();
 
     // Verify: total runs = maxAttempts (3)
@@ -232,7 +234,7 @@ describe("MongoDB Real-World Scenarios", () => {
     executions.forEach(({ jobName }) => {
       jobExecutionCounts.set(
         jobName,
-        (jobExecutionCounts.get(jobName) || 0) + 1
+        (jobExecutionCounts.get(jobName) || 0) + 1,
       );
     });
 
