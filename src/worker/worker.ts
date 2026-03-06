@@ -331,7 +331,10 @@ export class Worker {
           nextRunAt: nextRunAt.toISOString(),
         });
 
-        await this.store.reschedule(job._id, nextRunAt, { attempts });
+        await this.store.reschedule(job._id, nextRunAt, {
+          attempts,
+          lastError: error.message,
+        });
 
         this.emitter.emitSafe("job:retry", {
           ...job,
@@ -346,9 +349,43 @@ export class Worker {
           error: error.message,
         });
 
-        await this.store.update(job._id, { attempts });
-        await this.store.markFailed(job._id, error.message);
         this.emitter.emitSafe("job:fail", { job, error });
+
+        if (job.repeat) {
+          // If it's a repeating job, don't mark as permanently failed.
+          // Instead, schedule the next rhythm tick as if it had succeeded,
+          // but reset attempts to 0 for the new cycle.
+          this.log.log(`Rescheduling failed repeating job for next cycle`, {
+            jobId: String(job._id),
+          });
+
+          let next = new Date(); // Fallback for cron which already set lastScheduledAt
+
+          if (job.repeat.every != null) {
+            let baseTime = Date.now();
+            if (job.lastScheduledAt) {
+              baseTime = job.lastScheduledAt.getTime();
+            }
+            next = new Date(baseTime + Math.max(job.repeat.every, 100));
+            while (next.getTime() <= Date.now()) {
+              next = new Date(next.getTime() + Math.max(job.repeat.every, 100));
+            }
+            job.lastScheduledAt = next;
+          } else if (job.repeat.cron) {
+            // Cron already advanced lastScheduledAt before execution.
+            // We just need to grab that value.
+            next = job.lastScheduledAt ?? new Date();
+          }
+
+          await this.store.reschedule(job._id, next, {
+            lastScheduledAt: next,
+            attempts: 0, // Reset attempts for the next cycle
+            lastError: error.message,
+          });
+        } else {
+          await this.store.update(job._id, { attempts });
+          await this.store.markFailed(job._id, error.message);
+        }
       }
     } finally {
       stopHeartbeat = true;

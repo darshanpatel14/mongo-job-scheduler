@@ -134,7 +134,7 @@ export class InMemoryJobStore implements JobStore {
   async reschedule(
     jobId: unknown,
     nextRunAt: Date,
-    updates?: { attempts?: number; lastScheduledAt?: Date },
+    updates?: { attempts?: number; lastError?: string; lastScheduledAt?: Date },
   ): Promise<void> {
     const job = this.jobs.get(String(jobId));
     if (!job) throw new JobNotFoundError();
@@ -144,7 +144,7 @@ export class InMemoryJobStore implements JobStore {
     if (updates?.attempts != null) {
       job.attempts = updates.attempts;
     } else {
-      job.attempts = (job.attempts ?? 0) + 1;
+      job.attempts = 0;
     }
     job.lockedAt = undefined;
     job.lockedBy = undefined;
@@ -152,6 +152,12 @@ export class InMemoryJobStore implements JobStore {
 
     if (updates?.lastScheduledAt) {
       job.lastScheduledAt = updates.lastScheduledAt;
+    }
+
+    if (updates?.lastError) {
+      job.lastError = updates.lastError;
+    } else {
+      job.lastError = undefined; // Clear it if not provided to simulate mongo $unset / replacement behavior
     }
   }
 
