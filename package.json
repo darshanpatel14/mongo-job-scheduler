@@ -1,6 +1,6 @@
 {
   "name": "mongo-job-scheduler",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Production-grade MongoDB-backed job scheduler with retries, cron, timezone support, and crash recovery",
   "license": "MIT",
   "author": "Darshan Bhut",
@@ -49,7 +49,7 @@
     "cron-parser": "^4.9.0"
   },
   "peerDependencies": {
-    "mongodb": "^5.0.0 || ^6.0.0 || ^7.0.0"
+    "mongodb": "^6.0.0 || ^7.0.0"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",

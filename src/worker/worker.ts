@@ -264,9 +264,19 @@ export class Worker {
 
       await this.handler(job);
 
-      // INTERVAL: schedule after execution
+      // INTERVAL: schedule strictly based on lastScheduledAt or now
       if (job.repeat?.every != null) {
-        const next = new Date(Date.now() + Math.max(job.repeat.every, 100));
+        let baseTime = Date.now();
+        if (job.lastScheduledAt) {
+          baseTime = job.lastScheduledAt.getTime();
+        }
+
+        let next = new Date(baseTime + Math.max(job.repeat.every, 100));
+
+        // Skip missed intervals
+        while (next.getTime() <= Date.now()) {
+          next = new Date(next.getTime() + Math.max(job.repeat.every, 100));
+        }
 
         this.log.log(`Interval rescheduled`, {
           jobId: String(job._id),
