@@ -5,5 +5,5 @@ export function getRetryDelay(retry: RetryOptions, attempt: number): number {
     return retry.delay(attempt);
   }
 
-  return retry.delay;
+  return retry.delay ?? 0;
 }

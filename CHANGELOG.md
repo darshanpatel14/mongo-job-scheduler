@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.4] - 2026-03-10
+
+### Added
+
+- **Nested `data` Field Querying** — `scheduler.getJobs(query)` now supports flat nested data filtering via dot-notation conversion natively against the MongoDB backend (e.g. searching by `query.data: { organizationId: "xyz" }`).
+
+### Fixed
+
+- **Worker Stability** — Added a `try/catch` wrapper specifically around the synchronous execution block within the `Worker.loop()` to prevent user-space errors from silently crashing the polling loop indefinitely.
+- **Retry Delay `NaN` Bug** — Fixed an intermittent calculation error where omitted `retry.delay` properties could resolve to `NaN` and crash date logic instead of correctly defaulting to `0`.
+- **Interval Retry Logic** — Fixed an issue where repeating jobs exhausting their final retry attempt would immediately halt execution forever rather than cleanly rescheduling to hit the next interval.
+
 ## [1.2.2] - 2026-03-05
 
 ### Fixed

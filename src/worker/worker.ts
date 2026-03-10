@@ -117,7 +117,16 @@ export class Worker {
         attempts: job.attempts,
       });
 
-      await this.execute(job);
+      try {
+        await this.execute(job);
+      } catch (err: any) {
+        this.log.log(`Catastrophic error during job execution wrapper`, {
+          workerId: this.workerId,
+          jobId: String(job._id),
+          error: err?.message || String(err),
+        });
+        this.emitter.emitSafe("worker:error", err as Error);
+      }
     }
   }
 
