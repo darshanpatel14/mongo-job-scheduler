@@ -40,4 +40,13 @@ describe("Job Query API", () => {
     expect(jobs).toHaveLength(1);
     expect(jobs[0].data).toEqual({ id: 2 }); // id: 1 is skipped
   });
+
+  test("filters by nested data properties", async () => {
+    const jobs = await scheduler.getJobs({
+      data: { id: 2 },
+    });
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0].name).toBe("job B");
+    expect(jobs[0].data).toEqual({ id: 2 });
+  });
 });

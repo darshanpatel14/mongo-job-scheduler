@@ -515,6 +515,11 @@ export class MongoJobStore implements JobStore {
         ? { $in: query.status }
         : query.status;
     }
+    if (query.data && Object.keys(query.data).length > 0) {
+      for (const [key, value] of Object.entries(query.data)) {
+        filter[`data.${key}`] = value;
+      }
+    }
 
     let cursor = this.collection.find(filter);
 

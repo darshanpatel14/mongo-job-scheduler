@@ -265,6 +265,16 @@ export class InMemoryJobStore implements JobStore {
         : [query.status];
       jobs = jobs.filter((j) => statuses.includes(j.status));
     }
+    if (query.data && Object.keys(query.data).length > 0) {
+      jobs = jobs.filter((j) => {
+        if (!j.data) return false;
+        // Check that every key in query.data matches the corresponding key in j.data
+        const jobData = j.data as Record<string, any>;
+        return Object.entries(query.data!).every(
+          ([key, value]) => jobData[key] === value,
+        );
+      });
+    }
 
     // Sort
     if (query.sort) {

@@ -71,7 +71,7 @@ describe("MongoJobStore Scheduler Integration", () => {
         // @ts-ignore
         lockedAt: new Date(Date.now() - 1000),
         lockedBy: "dead-worker",
-      })
+      }),
     );
 
     const scheduler = new Scheduler({
@@ -185,4 +185,32 @@ describe("MongoJobStore Scheduler Integration", () => {
 
     expect(count).toBe(TOTAL);
   }, 10000);
+
+  test("supports querying by nested data fields in MongoDB", async () => {
+    const store = new MongoJobStore(db);
+    const scheduler = new Scheduler({ store });
+
+    await store.createBulk([
+      makeJob({ name: "export", data: { orgId: "org-1", userId: "u-1" } }),
+      makeJob({ name: "export", data: { orgId: "org-2", userId: "u-2" } }),
+      makeJob({ name: "report", data: { orgId: "org-1", type: "financial" } }),
+    ]);
+
+    // Query purely by nested orgId
+    const org1Jobs = await scheduler.getJobs({
+      data: { orgId: "org-1" },
+      sort: { field: "createdAt", order: "asc" },
+    });
+    expect(org1Jobs).toHaveLength(2);
+    expect((org1Jobs[0].data as any)?.orgId).toBe("org-1");
+    expect((org1Jobs[1].data as any)?.orgId).toBe("org-1");
+
+    // Query combination of name and data
+    const specificJob = await scheduler.getJobs({
+      name: "report",
+      data: { orgId: "org-1" },
+    });
+    expect(specificJob).toHaveLength(1);
+    expect((specificJob[0].data as any)?.type).toBe("financial");
+  });
 });
